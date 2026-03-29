@@ -177,6 +177,184 @@ async function loginPaciente() {
 }
 
 // ============================================================
+//  LOGIN MÉDICO
+// ============================================================
+async function loginMedico() {
+  const user = document.getElementById('loginMedUser').value.trim();
+  const pass = document.getElementById('loginMedPass').value;
+  if (!user || !pass) { showToast('Ingresá usuario y contraseña', 'error'); return; }
+
+  const btn = document.querySelector('#loginMedico .btn-login');
+  if (btn) { btn.disabled = true; btn.textContent = 'Ingresando...'; }
+
+  try {
+    const data = await apiCall('POST', '/auth/admin', { username: user, password: pass });
+    if (data.rol !== 'medico') { showToast('Acceso solo para médicos', 'error'); return; }
+
+    API_TOKEN = data.token;
+    APP.currentRole = 'medico';
+    APP.medico = { username: data.username, nombre: data.nombre || data.username };
+
+    await cargarTurnos();
+
+    hideLogin();
+    hideAllDashboards();
+    document.getElementById('dashMedico').classList.add('active');
+    document.getElementById('medUserName').textContent = APP.medico.nombre;
+    showMedView('hoy');
+    showToast('Bienvenido/a, ' + APP.medico.nombre);
+  } catch (e) {
+    showToast(e.message, 'error');
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = 'Ingresar como Médico'; }
+  }
+}
+
+// ============================================================
+//  PORTAL MÉDICO — VISTAS
+// ============================================================
+function showMedView(view) {
+  document.querySelectorAll('#sidebarMed .sidebar-link').forEach(l => l.classList.remove('active'));
+  event && event.target && event.target.closest && event.target.closest('.sidebar-link') &&
+    event.target.closest('.sidebar-link').classList.add('active');
+
+  const titles = { 'hoy': 'Agenda de Hoy', 'semana': 'Esta Semana', 'todos': 'Todos los Turnos', 'pacientes': 'Pacientes' };
+  document.getElementById('medViewTitle').textContent = titles[view] || 'Portal Médico';
+
+  const content = document.getElementById('medContent');
+  document.getElementById('sidebarMed').classList.remove('mobile-open');
+  document.getElementById('sidebarOverlayMed').classList.remove('active');
+
+  content.innerHTML = '<p style="color:var(--color-text-muted);text-align:center;padding:3rem;">Cargando...</p>';
+  cargarTurnos().then(() => {
+    if      (view === 'hoy')       content.innerHTML = _medAgendaHoy();
+    else if (view === 'semana')    content.innerHTML = _medAgendaSemana();
+    else if (view === 'todos')     content.innerHTML = _medTodosTurnos();
+    else if (view === 'pacientes') _medPacientes(content);
+  });
+}
+
+function _badgeEstado(estado) {
+  const cls = {
+    'Confirmado':                'badge-confirmed',
+    'Aprobado':                  'badge-approved',
+    'Pendiente de autorización': 'badge-pending',
+    'Revisar':                   'badge-info',
+    'Denegado':                  'badge-denied',
+  };
+  return '<span class="badge ' + (cls[estado] || 'badge-pending') + '">' + estado + '</span>';
+}
+
+function _medAgendaHoy() {
+  const hoy = new Date();
+  const dd  = String(hoy.getDate()).padStart(2,'0');
+  const mm  = String(hoy.getMonth()+1).padStart(2,'0');
+  const yyyy = hoy.getFullYear();
+  const hoyArg  = dd + '/' + mm + '/' + yyyy;
+  const turnos  = APP.turnos.filter(t => t.fecha === hoyArg && t.estado !== 'Denegado');
+
+  if (!turnos.length) {
+    return '<div class="dash-card"><div class="dash-card-body" style="text-align:center;padding:3rem;">' +
+      '<div style="font-size:3rem;margin-bottom:1rem;">🗓️</div>' +
+      '<p style="color:var(--color-text-muted);">No hay turnos confirmados para hoy (' + hoyArg + ')</p>' +
+      '</div></div>';
+  }
+
+  turnos.sort((a,b) => a.hora.localeCompare(b.hora));
+
+  let html = '<div style="margin-bottom:1rem;"><strong style="font-size:1.1rem;">📅 ' + hoyArg + '</strong> — ' +
+    '<span style="color:var(--color-text-muted);">' + turnos.length + ' turno' + (turnos.length!==1?'s':'') + '</span></div>';
+
+  turnos.forEach(t => {
+    html += '<div class="dash-card" style="margin-bottom:1rem;">' +
+      '<div class="dash-card-body">' +
+      '<div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:.5rem;">' +
+        '<div>' +
+          '<div style="font-size:1.4rem;font-weight:800;color:var(--color-primary);">' + t.hora + ' hs</div>' +
+          '<div style="font-size:1rem;font-weight:700;margin-top:.25rem;">' + t.paciente + '</div>' +
+          '<div style="color:var(--color-text-muted);font-size:0.85rem;">' + t.estudio + '</div>' +
+        '</div>' +
+        '<div style="text-align:right;">' +
+          _badgeEstado(t.estado) + '<br>' +
+          '<span style="font-size:0.8rem;color:var(--color-text-muted);">' + (t.cobertura||'-') + '</span>' +
+        '</div>' +
+      '</div>' +
+      (t.datosClinic && t.datosClinic.motivo ? '<div style="margin-top:.75rem;font-size:0.85rem;background:#f8f9fa;padding:8px 12px;border-radius:6px;color:#555;"><strong>Motivo:</strong> ' + t.datosClinic.motivo + '</div>' : '') +
+      '</div></div>';
+  });
+  return html;
+}
+
+function _medAgendaSemana() {
+  const hoy = new Date();
+  const semana = [];
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(hoy); d.setDate(hoy.getDate() + i);
+    const dd = String(d.getDate()).padStart(2,'0');
+    const mm = String(d.getMonth()+1).padStart(2,'0');
+    semana.push(dd + '/' + d.getFullYear().toString().slice(2) + '/' + d.getFullYear() );
+    // simpler: store full arg date
+    semana[i] = dd + '/' + mm + '/' + d.getFullYear();
+  }
+
+  let html = '';
+  semana.forEach(fechaArg => {
+    const turnos = APP.turnos.filter(t => t.fecha === fechaArg && t.estado !== 'Denegado');
+    if (!turnos.length) return;
+    html += '<div class="dash-card" style="margin-bottom:1rem;"><div class="dash-card-header"><h4>📅 ' + fechaArg + '</h4>' +
+      '<span class="badge badge-approved">' + turnos.length + ' turno' + (turnos.length!==1?'s':'') + '</span></div>' +
+      '<div class="dash-card-body"><table class="data-table"><thead><tr><th>Hora</th><th>Paciente</th><th>Estudio</th><th>Estado</th></tr></thead><tbody>';
+    turnos.sort((a,b) => a.hora.localeCompare(b.hora)).forEach(t => {
+      html += '<tr><td><strong>' + t.hora + '</strong></td><td>' + t.paciente + '</td><td style="font-size:0.85rem;">' + t.estudio + '</td><td>' + _badgeEstado(t.estado) + '</td></tr>';
+    });
+    html += '</tbody></table></div></div>';
+  });
+
+  if (!html) html = '<div class="dash-card"><div class="dash-card-body" style="text-align:center;padding:3rem;"><div style="font-size:3rem;">📅</div><p style="color:var(--color-text-muted);">No hay turnos esta semana</p></div></div>';
+  return html;
+}
+
+function _medTodosTurnos() {
+  const turnos = [...APP.turnos].filter(t => t.estado !== 'Denegado').sort((a,b) => {
+    if (a.fecha !== b.fecha) return a.fecha.localeCompare(b.fecha);
+    return a.hora.localeCompare(b.hora);
+  });
+
+  if (!turnos.length) return '<div class="dash-card"><div class="dash-card-body" style="text-align:center;padding:3rem;"><p>No hay turnos</p></div></div>';
+
+  let html = '<div class="dash-card"><div class="dash-card-body" style="overflow-x:auto;"><table class="data-table">' +
+    '<thead><tr><th>Fecha</th><th>Hora</th><th>Paciente</th><th>Estudio</th><th>Cobertura</th><th>Estado</th></tr></thead><tbody>';
+  turnos.forEach(t => {
+    html += '<tr>' +
+      '<td>' + t.fecha + '</td>' +
+      '<td><strong>' + t.hora + '</strong></td>' +
+      '<td>' + t.paciente + '</td>' +
+      '<td style="font-size:0.85rem;">' + t.estudio + '</td>' +
+      '<td>' + (t.cobertura||'-') + '</td>' +
+      '<td>' + _badgeEstado(t.estado) + '</td>' +
+      '</tr>';
+  });
+  html += '</tbody></table></div></div>';
+  return html;
+}
+
+async function _medPacientes(content) {
+  try {
+    const pacientes = await apiCall('GET', '/pacientes');
+    let html = '<div class="dash-card"><div class="dash-card-body" style="overflow-x:auto;"><table class="data-table">' +
+      '<thead><tr><th>Paciente</th><th>DNI</th><th>Cobertura</th><th>Teléfono</th></tr></thead><tbody>';
+    pacientes.forEach(p => {
+      html += '<tr><td><strong>' + p.nombre + '</strong></td><td>' + p.dni + '</td>' +
+        '<td>' + (p.cobertura||'-') + '</td><td>' + (p.telefono||'-') + '</td></tr>';
+    });
+    html += '</tbody></table></div></div>';
+    content.innerHTML = html;
+  } catch (e) {
+    content.innerHTML = '<p style="color:red;padding:2rem;">Error: ' + e.message + '</p>';
+  }
+}
+
+// ============================================================
 //  LOGIN ADMIN
 // ============================================================
 async function loginAdmin() {
@@ -189,6 +367,22 @@ async function loginAdmin() {
 
   try {
     const data = await apiCall('POST', '/auth/admin', { username: user, password: pass });
+
+    // Si es médico, redirigir al portal médico
+    if (data.rol === 'medico') {
+      API_TOKEN = data.token;
+      APP.currentRole = 'medico';
+      APP.medico = { username: data.username, nombre: data.nombre || data.username };
+      await cargarTurnos();
+      hideLogin();
+      hideAllDashboards();
+      document.getElementById('dashMedico').classList.add('active');
+      document.getElementById('medUserName').textContent = APP.medico.nombre;
+      showMedView('hoy');
+      showToast('Bienvenido/a, ' + APP.medico.nombre);
+      return;
+    }
+
     API_TOKEN = data.token;
     APP.currentRole = 'admin';
 

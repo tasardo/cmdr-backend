@@ -129,8 +129,15 @@ async function initDb() {
   const adminExiste = await mdb.collection('admins').findOne({ username: 'admin' });
   if (!adminExiste) {
     const hashed = bcrypt.hashSync(process.env.ADMIN_PASSWORD || 'cmdr2025', 10);
-    await mdb.collection('admins').insertOne({ username: 'admin', password: hashed });
+    await mdb.collection('admins').insertOne({ username: 'admin', password: hashed, rol: 'admin', nombre: 'Administrador' });
     console.log('[DB] Admin creado: admin / cmdr2025');
+  }
+  // Médico de ejemplo
+  const medicoExiste = await mdb.collection('admins').findOne({ username: 'dr.garcia' });
+  if (!medicoExiste) {
+    const hashed = bcrypt.hashSync('medico2025', 10);
+    await mdb.collection('admins').insertOne({ username: 'dr.garcia', password: hashed, rol: 'medico', nombre: 'Dr. García' });
+    console.log('[DB] Médico creado: dr.garcia / medico2025');
   }
 
   // Pacientes de muestra

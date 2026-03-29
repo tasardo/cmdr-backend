@@ -39,7 +39,7 @@ router.post('/paciente', async (req, res) => {
   }
 });
 
-// POST /api/auth/admin
+// POST /api/auth/admin  (también maneja médicos — el rol viene del campo 'rol' en la DB)
 router.post('/admin', async (req, res) => {
   try {
     const { username, password } = req.body;
@@ -48,8 +48,9 @@ router.post('/admin', async (req, res) => {
     const admin = await db.getAdmin(username);
     if (!admin || !bcrypt.compareSync(password, admin.password)) return res.status(401).json({ error: 'Credenciales inválidas' });
 
-    const token = jwt.sign({ id: admin._id, username: admin.username, rol: 'admin' }, JWT_SECRET, { expiresIn: '8h' });
-    res.json({ token, username: admin.username });
+    const rol = admin.rol || 'admin';
+    const token = jwt.sign({ id: admin._id, username: admin.username, nombre: admin.nombre || admin.username, rol }, JWT_SECRET, { expiresIn: '12h' });
+    res.json({ token, username: admin.username, nombre: admin.nombre || admin.username, rol });
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
