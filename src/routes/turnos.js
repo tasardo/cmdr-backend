@@ -1,7 +1,7 @@
 const express = require('express');
 const { db }  = require('../database/db');
 const { authMiddleware, adminOnly } = require('../middleware/auth');
-const { notificarConfirmacion, notificarAprobacion, whatsappURLConfirmacion } = require('../utils/notificaciones');
+const { notificarConfirmacion, notificarAprobacion, notificarDenegado, notificarRevisar, whatsappURLConfirmacion, whatsappURLDenegado, whatsappURLRevisar, googleCalendarURL } = require('../utils/notificaciones');
 
 const router   = express.Router();
 const HORARIOS = ['08:00','08:30','09:00','09:30','10:00','10:30','11:00','11:30','12:00'];
@@ -83,14 +83,24 @@ router.put('/:id', authMiddleware, async (req, res) => {
     if (changes.estado && changes.estado !== turno.estado) {
       const p      = await db.getPaciente(updated.paciente_dni);
       const nombre = p ? p.nombre : updated.paciente_dni;
+      const tel    = updated.telefono || (p ? p.telefono : null);
 
       if (changes.estado === 'Confirmado') {
-        notificarConfirmacion(updated, nombre).catch(() => {});
-        const tel = updated.telefono || (p ? p.telefono : null);
-        enriched.whatsapp_url = whatsappURLConfirmacion(tel, updated, nombre);
+        notificarConfirmacion(updated, nombre).catch(e => console.error('[EMAIL Confirmado]', e.message));
+        enriched.whatsapp_url      = whatsappURLConfirmacion(tel, updated, nombre);
+        enriched.calendar_url      = googleCalendarURL(updated, nombre);
       }
       if (changes.estado === 'Aprobado') {
-        notificarAprobacion(updated, nombre).catch(() => {});
+        notificarAprobacion(updated, nombre).catch(e => console.error('[EMAIL Aprobado]', e.message));
+        enriched.whatsapp_url = whatsappURLConfirmacion(tel, updated, nombre);
+      }
+      if (changes.estado === 'Denegado') {
+        notificarDenegado(updated, nombre).catch(e => console.error('[EMAIL Denegado]', e.message));
+        enriched.whatsapp_url = whatsappURLDenegado(tel, updated, nombre);
+      }
+      if (changes.estado === 'Revisar') {
+        notificarRevisar(updated, nombre).catch(e => console.error('[EMAIL Revisar]', e.message));
+        enriched.whatsapp_url = whatsappURLRevisar(tel, updated, nombre);
       }
     }
 

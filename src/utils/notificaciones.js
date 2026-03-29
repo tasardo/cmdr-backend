@@ -149,6 +149,32 @@ async function notificarAprobacion(turno, pacienteNombre) {
   await enviarEmail(turno.email, '✅ Orden Aprobada — CMDR Hospital Militar', html);
 }
 
+async function notificarDenegado(turno, pacienteNombre) {
+  if (!turno.email) return;
+  const html = templateBase(
+    '❌ Turno No Autorizado',
+    `<p>Estimado/a <strong>${pacienteNombre}</strong>, lamentamos informarle que su solicitud de turno fue <strong style="color:#dc3545;">DENEGADA</strong>.</p>
+     ${tablaTurno(turno)}
+     <div style="background:#fdecea;border-left:4px solid #dc3545;padding:12px 16px;border-radius:4px;">
+       <p style="margin:0;font-size:0.9rem;">Para más información o para presentar documentación adicional, contáctenos por WhatsApp al <strong>1150232010</strong> o al mail <strong>cemedirahmc@gmail.com</strong>.</p>
+     </div>`
+  );
+  await enviarEmail(turno.email, '❌ Solicitud de Turno No Autorizada — CMDR Hospital Militar', html);
+}
+
+async function notificarRevisar(turno, pacienteNombre) {
+  if (!turno.email) return;
+  const html = templateBase(
+    '🔍 Orden Médica en Revisión',
+    `<p>Estimado/a <strong>${pacienteNombre}</strong>, su orden médica está siendo <strong style="color:#fd7e14;">REVISADA</strong> por nuestro equipo.</p>
+     ${tablaTurno(turno)}
+     <div style="background:#fff3e0;border-left:4px solid #fd7e14;padding:12px 16px;border-radius:4px;">
+       <p style="margin:0;font-size:0.9rem;">Le notificaremos a la brevedad. Ante cualquier duda, comuníquese por WhatsApp al <strong>1150232010</strong>.</p>
+     </div>`
+  );
+  await enviarEmail(turno.email, '🔍 Orden Médica en Revisión — CMDR Hospital Militar', html);
+}
+
 async function notificarRecordatorio(turno, pacienteNombre) {
   if (!turno.email) return;
   const html = templateBase(
@@ -181,6 +207,51 @@ function whatsappURLConfirmacion(telefono, turno, pacienteNombre) {
   return `https://wa.me/${num}?text=${encodeURIComponent(msg)}`;
 }
 
+function whatsappURLDenegado(telefono, turno, pacienteNombre) {
+  const tel = (telefono || '').replace(/\D/g, '');
+  if (!tel) return null;
+  const msg = `🏥 *CMDR – Hospital Militar Central*\n\n` +
+    `❌ Su solicitud de turno fue *DENEGADA*\n\n` +
+    `👤 Paciente: ${pacienteNombre}\n` +
+    `📋 Estudio: ${turno.estudio}\n` +
+    `📅 Fecha solicitada: ${turno.fecha}\n\n` +
+    `Para más información comuníquese con nosotros.\n` +
+    `📞 Consultas: 1150232010`;
+  const num = tel.startsWith('54') ? tel : '549' + tel.replace(/^0/, '');
+  return `https://wa.me/${num}?text=${encodeURIComponent(msg)}`;
+}
+
+function whatsappURLRevisar(telefono, turno, pacienteNombre) {
+  const tel = (telefono || '').replace(/\D/g, '');
+  if (!tel) return null;
+  const msg = `🏥 *CMDR – Hospital Militar Central*\n\n` +
+    `🔍 Su orden médica está siendo *REVISADA*\n\n` +
+    `👤 Paciente: ${pacienteNombre}\n` +
+    `📋 Estudio: ${turno.estudio}\n\n` +
+    `Le notificaremos a la brevedad.\n` +
+    `📞 Consultas: 1150232010`;
+  const num = tel.startsWith('54') ? tel : '549' + tel.replace(/^0/, '');
+  return `https://wa.me/${num}?text=${encodeURIComponent(msg)}`;
+}
+
+function googleCalendarURL(turno, pacienteNombre) {
+  try {
+    // Convertir fecha YYYY-MM-DD y hora HH:MM a formato de Google Calendar
+    const [y, m, d] = turno.fecha.split('-');
+    const [hh, mm]  = (turno.hora || '09:00').split(':');
+    const start = `${y}${m}${d}T${hh}${mm}00`;
+    // Durar 1 hora por defecto
+    const endHH = String(parseInt(hh) + 1).padStart(2, '0');
+    const end   = `${y}${m}${d}T${endHH}${mm}00`;
+    const text  = encodeURIComponent(`Turno CMDR – ${turno.estudio}`);
+    const details = encodeURIComponent(
+      `Paciente: ${pacienteNombre}\nEstudio: ${turno.estudio}\nCobertura: ${turno.cobertura || '-'}\n\nHospital Militar Central – CMDR\nTel: 1150232010`
+    );
+    const location = encodeURIComponent('Hospital Militar Central, Ciudad de Buenos Aires');
+    return `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${text}&dates=${start}/${end}&details=${details}&location=${location}`;
+  } catch { return null; }
+}
+
 function whatsappURLRecordatorio(telefono, turno, pacienteNombre) {
   const tel = (telefono || '').replace(/\D/g, '');
   if (!tel) return null;
@@ -202,7 +273,12 @@ module.exports = {
   getPrecioParticular,
   notificarConfirmacion,
   notificarAprobacion,
+  notificarDenegado,
+  notificarRevisar,
   notificarRecordatorio,
   whatsappURLConfirmacion,
+  whatsappURLDenegado,
+  whatsappURLRevisar,
   whatsappURLRecordatorio,
+  googleCalendarURL,
 };

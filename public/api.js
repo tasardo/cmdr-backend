@@ -48,6 +48,17 @@ const PRECIOS_PARTICULAR = {
   'Test Helicobacter Pylori':    500721,
 };
 
+// ── Formato de fecha argentino DD/MM/AAAA ───────────────────
+function _fmtFecha(f) {
+  if (!f) return '-';
+  // Si ya está en DD/MM/AAAA, dejarlo
+  if (/^\d{2}\/\d{2}\/\d{4}$/.test(f)) return f;
+  // Convertir YYYY-MM-DD → DD/MM/AAAA
+  const [y, m, d] = f.split('-');
+  if (y && m && d) return d + '/' + m + '/' + y;
+  return f;
+}
+
 // ── Helper para llamadas HTTP ────────────────────────────────
 async function apiCall(method, path, body) {
   const opts = { method, headers: {} };
@@ -93,7 +104,7 @@ function normalizeTurno(t) {
     paciente: t.paciente_nombre || t.paciente_dni,
     dni: (t.paciente_dni || '').replace(/\./g, ''),
     estudio: t.estudio || '',
-    fecha: t.fecha || '',
+    fecha: _fmtFecha(t.fecha || ''),
     hora: t.hora || '',
     estado: t.estado || 'Pendiente de autorización',
     cobertura: t.cobertura || '',
@@ -275,22 +286,37 @@ async function changeEstado(id, nuevoEstado) {
     const idx = APP.turnos.findIndex(t => t.id === id);
     if (idx !== -1) APP.turnos[idx] = normalizeTurno(updated);
 
-    showToast('Estado actualizado a: ' + nuevoEstado);
+    const etiquetas = {
+      'Confirmado': '✅ Turno confirmado',
+      'Aprobado':   '✅ Orden aprobada',
+      'Denegado':   '❌ Turno denegado',
+      'Revisar':    '🔍 Orden enviada a revisión',
+    };
+    showToast(etiquetas[nuevoEstado] || 'Estado actualizado a: ' + nuevoEstado);
 
-    if (nuevoEstado === 'Confirmado') {
-      if (updated.email) showToast('📧 Mail de confirmación enviado a ' + updated.email, 'info');
-
-      // Abrir WhatsApp automáticamente si hay teléfono
-      if (updated.whatsapp_url) {
-        setTimeout(() => {
-          showToast('📱 Abriendo WhatsApp para enviar confirmación...', 'info');
-          window.open(updated.whatsapp_url, '_blank');
-        }, 800);
-      }
+    // Email enviado automáticamente si está configurado
+    if (updated.email) {
+      showToast('📧 Mail enviado a ' + updated.email, 'info');
     }
 
-    if (nuevoEstado === 'Aprobado') {
-      if (updated.email) showToast('📧 Mail de aprobación enviado a ' + updated.email, 'info');
+    // Abrir WhatsApp si hay número de teléfono
+    if (updated.whatsapp_url) {
+      setTimeout(() => {
+        showToast('📱 Abriendo WhatsApp...', 'info');
+        window.open(updated.whatsapp_url, '_blank');
+      }, 800);
+    }
+
+    // Mostrar botón de Google Calendar si el turno fue confirmado
+    if (nuevoEstado === 'Confirmado' && updated.calendar_url) {
+      setTimeout(() => {
+        const msg = '📅 <a href="' + updated.calendar_url + '" target="_blank" style="color:#1a73e8;font-weight:600;">Agregar al calendario</a>';
+        const div = document.createElement('div');
+        div.style.cssText = 'background:#e8f0fe;border:1px solid #4285f4;border-radius:8px;padding:12px 16px;margin:12px 0;font-size:0.9rem;';
+        div.innerHTML = '📅 Turno confirmado — <a href="' + updated.calendar_url + '" target="_blank" style="color:#1a73e8;font-weight:700;">Agregar a Google Calendar</a>';
+        const content = document.getElementById('admContent');
+        if (content) content.insertBefore(div, content.firstChild);
+      }, 1200);
     }
 
     viewTurnoDetail(id);
