@@ -128,13 +128,14 @@ async function cargarTurnos() {
 async function loginPaciente() {
   const dni    = document.getElementById('loginDNI').value.trim();
   const fecha  = document.getElementById('loginFechaNac').value;
+  const nombre = (document.getElementById('loginNombre') || {}).value || '';
   if (!dni || !fecha) { showToast('Completá DNI y fecha de nacimiento', 'error'); return; }
 
   const btn = document.querySelector('#loginPaciente .btn-login');
   if (btn) { btn.disabled = true; btn.textContent = 'Ingresando...'; }
 
   try {
-    const data = await apiCall('POST', '/auth/paciente', { dni, nacimiento: fecha });
+    const data = await apiCall('POST', '/auth/paciente', { dni, nacimiento: fecha, nombre: nombre.trim() || undefined });
     API_TOKEN = data.token;
 
     APP.currentRole = 'paciente';

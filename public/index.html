@@ -664,14 +664,19 @@ button { cursor:pointer; border:none; font-family:inherit; }
     </div>
     <div id="loginPaciente">
       <div class="form-group">
+        <label>Nombre y Apellido</label>
+        <input type="text" id="loginNombre" placeholder="Ej: Juan García">
+      </div>
+      <div class="form-group">
         <label>DNI</label>
-        <input type="text" id="loginDNI" placeholder="Ej: 30.123.456" maxlength="12">
+        <input type="text" id="loginDNI" placeholder="Ej: 30123456" maxlength="12">
       </div>
       <div class="form-group">
         <label>Fecha de Nacimiento</label>
         <input type="date" id="loginFechaNac">
       </div>
       <button class="btn-login" onclick="loginPaciente()">Ingresar como Paciente</button>
+      <p style="margin-top:.75rem;font-size:0.78rem;color:#888;text-align:center;">Si es tu primera vez, se crea tu cuenta automáticamente.</p>
     </div>
     <div id="loginAdmin" style="display:none;">
       <div class="form-group">
