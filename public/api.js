@@ -451,6 +451,7 @@ async function submitTurno() {
       hora:         turnoData.hora,
       cobertura:    turnoData.cobertura,
       email:        turnoData.email,
+      telefono:     turnoData.telefono || null,
       orden_archivo: ordenFilename,
       peso:         dc.peso    || null,
       altura:       dc.altura  || null,
@@ -745,31 +746,35 @@ async function sendChat() {
 }
 
 // ============================================================
-//  PRECIO EN PASO 6 DEL WIZARD (solo Particular)
+//  PASO 6 DEL WIZARD — Resumen completo (override directo)
 // ============================================================
-// Override buildConfirmation para agregar precio si es Particular
-const _origBuildConfirmation = typeof buildConfirmation === 'function' ? buildConfirmation : null;
 function buildConfirmation() {
-  if (_origBuildConfirmation) _origBuildConfirmation();
-
-  // Si ya se eligió cobertura Particular, mostrar precio
   const r = document.getElementById('turnoResumen');
   if (!r) return;
 
-  const cob    = turnoData.cobertura || '';
-  const precio = PRECIOS_PARTICULAR[turnoData.estudio];
+  const dc     = turnoData.datosClinic || {};
+  const precio = turnoData.cobertura === 'Particular' ? PRECIOS_PARTICULAR[turnoData.estudio] : null;
 
-  if (cob === 'Particular' && precio) {
-    // Agregar fila de precio al resumen
-    const precioRow = document.createElement('div');
-    precioRow.className = 'conf-row';
-    precioRow.style.cssText = 'background:#e8f5e9;border-radius:6px;margin-top:8px;';
-    precioRow.innerHTML =
-      '<span class="cr-label" style="color:#2e7d32;font-weight:700;">💰 Precio estimado</span>' +
-      '<span class="cr-value" style="color:#2e7d32;font-size:1.1rem;font-weight:700;">$' +
-      precio.toLocaleString('es-AR') + '</span>';
-    r.appendChild(precioRow);
-  }
+  r.innerHTML =
+    '<div class="conf-row"><span class="cr-label">Estudio</span><span class="cr-value">'    + (turnoData.estudio   || '-') + '</span></div>' +
+    '<div class="conf-row"><span class="cr-label">Fecha</span><span class="cr-value">'      + (turnoData.fecha     || '-') + '</span></div>' +
+    '<div class="conf-row"><span class="cr-label">Hora</span><span class="cr-value">'       + (turnoData.hora      || '-') + ' hs</span></div>' +
+    '<div class="conf-row"><span class="cr-label">Cobertura</span><span class="cr-value">'  + (turnoData.cobertura || '-') + '</span></div>' +
+    '<div class="conf-row"><span class="cr-label">Orden médica</span><span class="cr-value">' + (turnoData.orden   || 'No cargada') + '</span></div>' +
+    '<div class="conf-row"><span class="cr-label">Peso / Altura / Edad</span><span class="cr-value">' +
+      (dc.peso ? dc.peso + ' kg / ' + dc.altura + ' cm / ' + dc.edad + ' años' : '-') +
+    '</span></div>' +
+    '<div class="conf-row"><span class="cr-label">Sexo</span><span class="cr-value">'         + (dc.sexo         || '-') + '</span></div>' +
+    '<div class="conf-row"><span class="cr-label">Alergias</span><span class="cr-value">'     + (dc.alergias     || '-') + '</span></div>' +
+    '<div class="conf-row"><span class="cr-label">Medicación</span><span class="cr-value">'   + (dc.medicacion   || '-') + '</span></div>' +
+    '<div class="conf-row"><span class="cr-label">Motivo</span><span class="cr-value">'       + (dc.motivo       || '-') + '</span></div>' +
+    '<div class="conf-row"><span class="cr-label">Email</span><span class="cr-value">'        + (turnoData.email    || '-') + '</span></div>' +
+    '<div class="conf-row"><span class="cr-label">WhatsApp</span><span class="cr-value">'     + (turnoData.telefono || '-') + '</span></div>' +
+    (precio
+      ? '<div class="conf-row" style="background:#e8f5e9;border-radius:6px;padding:8px 4px;margin-top:4px;">' +
+        '<span class="cr-label" style="color:#2e7d32;font-weight:700;">💰 Precio estimado (Particular)</span>' +
+        '<span class="cr-value" style="color:#2e7d32;font-size:1.1rem;font-weight:700;">$' + precio.toLocaleString('es-AR') + '</span></div>'
+      : '');
 }
 
 // ============================================================
