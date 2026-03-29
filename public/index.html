@@ -1111,7 +1111,7 @@ function renderNuevoTurno() {
     '<h4 style="margin-bottom:1rem;color:var(--color-primary);">Datos de contacto</h4>' +
     '<p style="font-size:0.85rem;color:var(--color-text-muted);margin-bottom:1rem;">Te enviaremos la confirmación y un recordatorio 24hs antes por mail y WhatsApp.</p>' +
     '<div class="form-group"><label>Email *</label><input type="email" id="turnoEmail" placeholder="tu@email.com"></div>' +
-    '<div class="form-group"><label>WhatsApp * <span style="font-size:0.78rem;color:#888;">(número con código de área, sin 0 ni 15)</span></label><input type="tel" id="turnoTel" placeholder="Ej: 1155557890"></div>' +
+    '<div class="form-group"><label>WhatsApp *</label><div id="turnoTelContainer"><!-- inyectado por api.js --></div></div>' +
     '</div>' +
     // Step 6 - Confirm
     '<div class="wizard-panel" data-panel="6">' +
@@ -1167,9 +1167,14 @@ function wizardNext() {
   }
   if(wizardStep === 5) {
     turnoData.email    = document.getElementById('turnoEmail').value.trim();
-    turnoData.telefono = document.getElementById('turnoTel').value.trim();
+    // Leer teléfono del nuevo input compuesto (área + número)
+    const telArea = document.getElementById('turnoTelArea');
+    const telNum  = document.getElementById('turnoTelNum');
+    const area    = telArea ? telArea.value.trim() : '';
+    const num     = telNum  ? telNum.value.replace(/\D/g,'').trim() : '';
+    turnoData.telefono = (area && num) ? area + num : '';
     if(!turnoData.email)    { showToast('Ingresá tu email','error'); return; }
-    if(!turnoData.telefono) { showToast('Ingresá tu número de WhatsApp','error'); return; }
+    if(!turnoData.telefono || num.length < 6) { showToast('Ingresá tu número de WhatsApp completo','error'); return; }
   }
   if(wizardStep === 6) { submitTurno(); return; }
   wizardStep++;

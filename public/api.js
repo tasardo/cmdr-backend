@@ -48,6 +48,90 @@ const PRECIOS_PARTICULAR = {
   'Test Helicobacter Pylori':    500721,
 };
 
+// ============================================================
+//  HELPERS DE VALIDACIÓN ARGENTINA
+// ============================================================
+
+// DNI: solo números, máximo 8 dígitos, auto-formatea con puntos
+function _setupDNIInput(inputId) {
+  const el = document.getElementById(inputId);
+  if (!el) return;
+  el.maxLength = 10; // XX.XXX.XXX
+  el.setAttribute('inputmode', 'numeric');
+  el.addEventListener('input', function() {
+    let v = this.value.replace(/\D/g, '').slice(0, 8);
+    if (v.length > 6)      this.value = v.slice(0,2) + '.' + v.slice(2,5) + '.' + v.slice(5);
+    else if (v.length > 3) this.value = v.slice(0,2) + '.' + v.slice(2);
+    else                   this.value = v;
+  });
+}
+
+// Codigos de área por provincia (Argentina)
+const CODIGOS_AREA = [
+  { code:'11',  label:'CABA / GBA' },
+  { code:'220', label:'Luján / Mercedes (BA)' },
+  { code:'221', label:'La Plata' },
+  { code:'223', label:'Mar del Plata' },
+  { code:'230', label:'Pergamino / Colón' },
+  { code:'236', label:'Junín' },
+  { code:'237', label:'Moreno / Merlo' },
+  { code:'249', label:'Tandil / Azul' },
+  { code:'261', label:'Mendoza' },
+  { code:'264', label:'San Juan' },
+  { code:'266', label:'San Luis' },
+  { code:'280', label:'Trelew / Rawson' },
+  { code:'291', label:'Bahía Blanca' },
+  { code:'297', label:'Comodoro Rivadavia' },
+  { code:'299', label:'Neuquén / Cipolletti' },
+  { code:'341', label:'Rosario' },
+  { code:'342', label:'Santa Fe' },
+  { code:'343', label:'Paraná' },
+  { code:'351', label:'Córdoba Capital' },
+  { code:'353', label:'Villa María' },
+  { code:'358', label:'Río Cuarto' },
+  { code:'362', label:'Resistencia' },
+  { code:'370', label:'Corrientes Capital' },
+  { code:'376', label:'Posadas' },
+  { code:'381', label:'Tucumán Capital' },
+  { code:'383', label:'Catamarca' },
+  { code:'385', label:'Santiago del Estero' },
+  { code:'387', label:'Salta' },
+  { code:'388', label:'Jujuy' },
+];
+
+// Genera el HTML del campo teléfono con selector de código de área
+function _telInputHTML(idArea, idNum) {
+  const opts = CODIGOS_AREA.map(c =>
+    '<option value="' + c.code + '">' + c.code + ' — ' + c.label + '</option>'
+  ).join('');
+  return '<div style="display:flex;gap:.5rem;align-items:flex-start;">' +
+    '<div style="flex:0 0 auto;">' +
+      '<label style="font-size:0.75rem;color:#888;display:block;margin-bottom:4px;">Cod. área</label>' +
+      '<select id="' + idArea + '" style="padding:.55rem .5rem;border:1.5px solid var(--color-border);border-radius:var(--radius-sm);font-size:0.85rem;background:#fff;">' +
+      opts + '</select>' +
+    '</div>' +
+    '<div style="flex:1;">' +
+      '<label style="font-size:0.75rem;color:#888;display:block;margin-bottom:4px;">Número (sin 15)</label>' +
+      '<input type="tel" id="' + idNum + '" placeholder="Ej: 55557890" inputmode="numeric" maxlength="8" ' +
+      'style="width:100%;padding:.55rem .75rem;border:1.5px solid var(--color-border);border-radius:var(--radius-sm);font-size:0.9rem;" ' +
+      'oninput="this.value=this.value.replace(/\\D/g,\'\').slice(0,8)">' +
+    '</div>' +
+  '</div>' +
+  '<p style="font-size:0.75rem;color:#888;margin-top:4px;">📱 WhatsApp: +54 9 <span id="' + idArea + '_preview">11</span> <span id="' + idNum + '_preview">——</span></p>';
+}
+
+// Lee y combina área + número en formato WhatsApp
+function _getTelValue(idArea, idNum) {
+  const area = (document.getElementById(idArea) || {}).value || '';
+  const num  = (document.getElementById(idNum)  || {}).value || '';
+  // Preview en tiempo real
+  const pa = document.getElementById(idArea + '_preview');
+  const pn = document.getElementById(idNum  + '_preview');
+  if (pa) pa.textContent = area;
+  if (pn) pn.textContent = num || '——';
+  return area && num ? area + num : '';
+}
+
 // ── Formato de fecha argentino DD/MM/AAAA ───────────────────
 function _fmtFecha(f) {
   if (!f) return '-';
@@ -696,14 +780,24 @@ function showPacView(view) {
 
   if (view === 'nuevo-turno') {
     content.innerHTML = renderNuevoTurno();
-    // Reemplazar las 6 tarjetas default por la lista completa de estudios
+    // Lista completa de estudios
     const studyCont = content.querySelector('.study-options');
     if (studyCont) studyCont.innerHTML = _generarTarjetasEstudios();
+    // Input de teléfono con selector de provincia
+    const telCont = document.getElementById('turnoTelContainer');
+    if (telCont) telCont.innerHTML = _telInputHTML('turnoTelArea', 'turnoTelNum');
+    // Actualizar preview en tiempo real
+    ['turnoTelArea','turnoTelNum'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.addEventListener('input', () => _getTelValue('turnoTelArea','turnoTelNum'));
+      if (el) el.addEventListener('change', () => _getTelValue('turnoTelArea','turnoTelNum'));
+    });
     initWizard();
     return;
   }
   if (view === 'mi-perfil') {
     content.innerHTML = renderMiPerfil();
+    _setupDNIInput('perfDNI');
     return;
   }
   if (view === 'mis-estudios') {
@@ -882,5 +976,8 @@ window.addEventListener('load', () => {
   fetch(API_URL + '/health')
     .then(r => r.json())
     .then(() => console.log('✅ Backend conectado'))
-    .catch(() => console.warn('⚠️ Backend no disponible en ' + API_URL + '. Ejecutá: npm start en la carpeta cmdr-backend'));
+    .catch(() => console.warn('⚠️ Backend no disponible en ' + API_URL));
+
+  // Auto-formato DNI en el login
+  _setupDNIInput('loginDNI');
 });
