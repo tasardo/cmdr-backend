@@ -7,10 +7,45 @@ let API_TOKEN = null;
 
 // ── Precios para pacientes PARTICULARES (sin obra social) ────
 const PRECIOS_PARTICULAR = {
-  'Centellograma Óseo':         549676,
-  'Centellograma Cardíaco':     986628,
-  'Centellograma Tiroideo':     322534,
-  'SPECT Cerebral':            1096695,
+  'Centellograma Óseo':          549676,
+  'Centello. OseoTotal':         549676,
+  'Centello. OseoParcial':       549676,
+  'Centellograma Cardíaco':      986628,
+  'PerfMiocR/S':                 986628,
+  'Centellograma Tiroideo':      322534,
+  'CaptacionTiroideo':           117356,
+  'Centello. PerfPulmon(Q)':     549676,
+  'Centello.VentPulmon (V)':     863947,
+  'Centello. RenalDMSA':         549676,
+  'Centello. RenalDTPArrg':      963351,
+  'Centello. Hepatico':          549676,
+  'Centello. Salivares':         420484,
+  'Centello. Mamario':           963351,
+  'CentCerebral':                549676,
+  'Centello. Linfografia':       986939,
+  'Centello. ParatirSustrac':   1187208,
+  'ReflujoGE':                   549676,
+  'VaciamiG Gastrico':           549676,
+  'TestVesicula':                552928,
+  'Cisternografia':              552928,
+  'Rastreo Galio67CorpTotal':     32526,
+  'SPECT Cerebral':             1096695,
+  'SPECTCerebro':               1096695,
+  'SPECTOseo':                   764030,
+  'SPECTTiroid':                1070301,
+  'SPECTParatir':               1620573,
+  'SPECTPerR/S':                 986628,
+  'SPECTHigPoo':                 764030,
+  'SPECTPulmon':                 764030,
+  'SPECT/CT (x region)':        1010768,
+  'SPECT/CT MIBI':              1009948,
+  'PET/CT TOTAL':                864275,
+  'PET/CT (FDG) PARCIAL':        864275,
+  'PET/CT (COLINA)':            1152695,
+  'PET/CT (FLUORDOPA)':         1409976,
+  'PET/CT F-PSMA':              2413035,
+  'Ergometria':                   12755,
+  'Test Helicobacter Pylori':    500721,
 };
 
 // ── Helper para llamadas HTTP ────────────────────────────────
@@ -439,6 +474,9 @@ function showPacView(view) {
 
   if (view === 'nuevo-turno') {
     content.innerHTML = renderNuevoTurno();
+    // Reemplazar las 6 tarjetas default por la lista completa de estudios
+    const studyCont = content.querySelector('.study-options');
+    if (studyCont) studyCont.innerHTML = _generarTarjetasEstudios();
     initWizard();
     return;
   }
@@ -513,15 +551,65 @@ function buildConfirmation() {
   }
 }
 
-// Mostrar precio en el wizard paso 1 (tarjetas de estudio)
-const _origSelectStudy = typeof selectStudy === 'function' ? selectStudy : null;
+// ============================================================
+//  LISTA COMPLETA DE ESTUDIOS (tarjetas del wizard paso 1)
+// ============================================================
+function _generarTarjetasEstudios() {
+  const estudios = [
+    // ── Centellogramas ───────────────────────────────────────
+    { key: 'Centellograma Óseo',         icon: '⚛️',  label: 'Centellograma Óseo',           desc: 'Rastreo corporal total' },
+    { key: 'Centellograma Cardíaco',     icon: '🫀',  label: 'Centellograma Cardíaco',        desc: 'Perfusión miocárdica' },
+    { key: 'Centellograma Tiroideo',     icon: '🦠',  label: 'Centellograma Tiroideo',        desc: 'Función tiroidea' },
+    { key: 'CaptacionTiroideo',          icon: '🎯',  label: 'Captación Tiroidea',            desc: 'Captación de yodo' },
+    { key: 'Centello. PerfPulmon(Q)',    icon: '🫁',  label: 'Centellograma Pulmonar (Q)',    desc: 'Perfusión pulmonar' },
+    { key: 'Centello.VentPulmon (V)',    icon: '💨',  label: 'Ventilación Pulmonar (V)',      desc: 'Ventilación pulmonar' },
+    { key: 'Centello. RenalDMSA',        icon: '🧬',  label: 'Centellograma Renal DMSA',     desc: 'Función renal estática' },
+    { key: 'Centello. RenalDTPArrg',     icon: '🧬',  label: 'Centellograma Renal DTPA',     desc: 'Función renal dinámica' },
+    { key: 'Centello. Hepatico',         icon: '🏥',  label: 'Centellograma Hepático',        desc: 'Hígado' },
+    { key: 'Centello. Salivares',        icon: '💧',  label: 'Centellograma Salivares',       desc: 'Glándulas salivales' },
+    { key: 'Centello. Mamario',          icon: '🎯',  label: 'Centellograma Mamario',         desc: 'Mama / MIBI' },
+    { key: 'CentCerebral',               icon: '🧠',  label: 'Centellograma Cerebral',        desc: 'Perfusión cerebral' },
+    { key: 'Centello. Linfografia',      icon: '🔗',  label: 'Linfografía',                   desc: 'Sistema linfático' },
+    { key: 'Centello. ParatirSustrac',   icon: '🔬',  label: 'Paratiroides (Sustracción)',    desc: 'Centellograma' },
+    { key: 'ReflujoGE',                  icon: '🏥',  label: 'Reflujo Gastroesofágico',       desc: 'Tránsito digestivo' },
+    { key: 'VaciamiG Gastrico',          icon: '🏥',  label: 'Vaciamiento Gástrico',          desc: 'Motilidad gástrica' },
+    { key: 'TestVesicula',               icon: '🏥',  label: 'Test Vesícula',                 desc: 'Función vesicular' },
+    { key: 'Cisternografia',             icon: '🧠',  label: 'Cisternografía',                desc: 'LCR y circulación' },
+    { key: 'Rastreo Galio67CorpTotal',   icon: '🔬',  label: 'Rastreo Galio-67',              desc: 'Cuerpo total' },
+    // ── SPECT ────────────────────────────────────────────────
+    { key: 'SPECT Cerebral',             icon: '🧠',  label: 'SPECT Cerebral',                desc: 'Perfusión cerebral SPECT' },
+    { key: 'SPECTOseo',                  icon: '⚛️',  label: 'SPECT Óseo',                    desc: 'Huesos SPECT' },
+    { key: 'SPECTTiroid',                icon: '🦠',  label: 'SPECT Tiroideo',                desc: 'Tiroides SPECT' },
+    { key: 'SPECTParatir',               icon: '🔬',  label: 'SPECT Paratiroides',            desc: 'Paratiroides SPECT' },
+    { key: 'SPECTPerR/S',                icon: '🫀',  label: 'SPECT Perf. Cardíaca R/S',      desc: 'Reposo y esfuerzo' },
+    { key: 'SPECTHigPoo',                icon: '🏥',  label: 'SPECT Hígado Pool',             desc: 'Hígado SPECT' },
+    { key: 'SPECTPulmon',                icon: '🫁',  label: 'SPECT Pulmón',                  desc: 'Pulmón SPECT' },
+    { key: 'SPECT/CT (x region)',        icon: '🔬',  label: 'SPECT/CT',                      desc: 'Por región anatómica' },
+    { key: 'SPECT/CT MIBI',              icon: '🫀',  label: 'SPECT/CT MIBI',                 desc: 'Cardiología nuclear' },
+    // ── PET/CT ───────────────────────────────────────────────
+    { key: 'PET/CT TOTAL',               icon: '💊',  label: 'PET/CT Total (FDG)',            desc: 'Cuerpo completo' },
+    { key: 'PET/CT (FDG) PARCIAL',       icon: '💊',  label: 'PET/CT Parcial (FDG)',          desc: 'Región parcial' },
+    { key: 'PET/CT (COLINA)',            icon: '💊',  label: 'PET/CT Colina',                 desc: 'Próstata / cerebro' },
+    { key: 'PET/CT (FLUORDOPA)',         icon: '💊',  label: 'PET/CT Fluorodopa',             desc: 'Parkinson / tumores' },
+    { key: 'PET/CT F-PSMA',             icon: '💊',  label: 'PET/CT F-PSMA',                desc: 'Cáncer de próstata' },
+    // ── Otros ────────────────────────────────────────────────
+    { key: 'Ergometria',                 icon: '🏃',  label: 'Ergometría',                    desc: 'Prueba de esfuerzo' },
+    { key: 'Test Helicobacter Pylori',   icon: '🦠',  label: 'Test Helicobacter Pylori',      desc: 'Diagnóstico H. Pylori' },
+  ];
+  return estudios.map(e =>
+    '<div class="study-option" onclick="selectStudy(this,' + JSON.stringify(e.key) + ')">' +
+    '<div class="so-icon">' + e.icon + '</div>' +
+    '<h5>' + e.label + '</h5>' +
+    '<p>' + e.desc + '</p>' +
+    '</div>'
+  ).join('');
+}
+
+// Override selectStudy — corrige bug de recursión infinita
 function selectStudy(el, name) {
-  if (_origSelectStudy) _origSelectStudy(el, name);
-  else {
-    document.querySelectorAll('.study-option').forEach(s => s.classList.remove('selected'));
-    el.classList.add('selected');
-    turnoData.estudio = name;
-  }
+  document.querySelectorAll('.study-option').forEach(s => s.classList.remove('selected'));
+  el.classList.add('selected');
+  turnoData.estudio = name;
 }
 
 // ============================================================
