@@ -597,7 +597,7 @@ function _generarTarjetasEstudios() {
     { key: 'Test Helicobacter Pylori',   icon: '🦠',  label: 'Test Helicobacter Pylori',      desc: 'Diagnóstico H. Pylori' },
   ];
   return estudios.map(e =>
-    '<div class="study-option" onclick="selectStudy(this,' + JSON.stringify(e.key) + ')">' +
+    '<div class="study-option" data-estudio="' + e.key.replace(/"/g, '&quot;') + '" onclick="selectStudy(this, this.dataset.estudio)">' +
     '<div class="so-icon">' + e.icon + '</div>' +
     '<h5>' + e.label + '</h5>' +
     '<p>' + e.desc + '</p>' +
