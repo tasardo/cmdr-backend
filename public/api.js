@@ -976,8 +976,10 @@ async function _verificarRecordatoriosPendientes() {
 // ============================================================
 function _ordenHTML(ordenFilename) {
   if (!ordenFilename || ordenFilename === 'No cargada') return '<span style="color:#aaa;">No cargada</span>';
-  const base = API_URL + '/archivos/' + ordenFilename + '?token=' + API_TOKEN;
-  const ext  = ordenFilename.split('.').pop().toLowerCase();
+  // Si es URL de Cloudinary (https://...) usarla directa; si no, usar endpoint local con token
+  const isCloudinary = ordenFilename.startsWith('http');
+  const base = isCloudinary ? ordenFilename : (API_URL + '/archivos/' + ordenFilename + '?token=' + API_TOKEN);
+  const ext  = ordenFilename.split('.').pop().toLowerCase().split('?')[0];
   let preview = '';
   if (['jpg','jpeg','png'].includes(ext)) {
     preview = '<div style="margin-top:8px;"><img src="' + base + '" style="max-width:100%;max-height:300px;border-radius:6px;border:1px solid #ddd;" onerror="this.style.display=\'none\'"></div>';
