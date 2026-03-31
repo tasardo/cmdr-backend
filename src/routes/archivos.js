@@ -46,16 +46,24 @@ router.post('/upload', authMiddleware, upload.single('orden'), (req, res) => {
   });
 });
 
-// GET /api/archivos/:filename  — descargar/ver archivo
-router.get('/:filename', authMiddleware, (req, res) => {
-  // Sanitizar nombre para evitar path traversal
+// GET /api/archivos/:filename  — ver/descargar archivo
+// Acepta token como query param (?token=xxx) para poder abrir en pestaña nueva
+const jwt = require('jsonwebtoken');
+router.get('/:filename', (req, res) => {
+  // Verificar auth: header Authorization o query ?token=
+  const JWT_SECRET = process.env.JWT_SECRET || 'cmdr_secret_key_2025';
+  const raw = req.headers.authorization?.replace('Bearer ', '') || req.query.token;
+  if (!raw) return res.status(401).json({ error: 'No autorizado' });
+  try { jwt.verify(raw, JWT_SECRET); } catch { return res.status(401).json({ error: 'Token inválido' }); }
+
   const filename = path.basename(req.params.filename);
   const filepath = path.join(UPLOADS_DIR, filename);
+  if (!fs.existsSync(filepath)) return res.status(404).json({ error: 'Archivo no encontrado' });
 
-  if (!fs.existsSync(filepath)) {
-    return res.status(404).json({ error: 'Archivo no encontrado' });
+  // Si es descarga forzada agregar Content-Disposition
+  if (req.query.download === '1') {
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
   }
-
   res.sendFile(filepath);
 });
 

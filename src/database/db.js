@@ -107,6 +107,19 @@ const db = {
     return item;
   },
 
+  // ── AUDIT LOG (Ley 25.326 Art. 9 — trazabilidad) ──────────
+  async auditLog(entry) {
+    const mdb = await connect();
+    await mdb.collection('auditlog').insertOne({
+      ...entry,
+      timestamp: new Date().toISOString(),
+    });
+  },
+  async getAuditLog(filtro = {}) {
+    const mdb = await connect();
+    return mdb.collection('auditlog').find(filtro).sort({ timestamp: -1 }).limit(200).toArray();
+  },
+
   // ── RECORDATORIOS ─────────────────────────────────────────
   async recordatorioEnviado(turnoId) {
     const mdb = await connect();

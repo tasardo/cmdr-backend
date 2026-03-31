@@ -1,6 +1,6 @@
 const express = require('express');
 const { db }  = require('../database/db');
-const { authMiddleware, adminOnly } = require('../middleware/auth');
+const { authMiddleware, adminOnly, auditMiddleware } = require('../middleware/auth');
 const { notificarConfirmacion, notificarAprobacion, notificarDenegado, notificarRevisar, whatsappURLConfirmacion, whatsappURLDenegado, whatsappURLRevisar, googleCalendarURL } = require('../utils/notificaciones');
 
 const router   = express.Router();
@@ -12,7 +12,7 @@ async function conNombre(t) {
 }
 
 // GET /api/turnos
-router.get('/', authMiddleware, async (req, res) => {
+router.get('/', authMiddleware, auditMiddleware('ver_turnos'), async (req, res) => {
   try {
     const turnos = req.user.rol === 'admin'
       ? await db.getTurnos()
@@ -61,7 +61,7 @@ router.post('/', authMiddleware, async (req, res) => {
 });
 
 // PUT /api/turnos/:id
-router.put('/:id', authMiddleware, async (req, res) => {
+router.put('/:id', authMiddleware, auditMiddleware('modificar_turno'), async (req, res) => {
   try {
     const id    = parseInt(req.params.id);
     const turno = await db.getTurno(id);

@@ -1,4 +1,5 @@
-const jwt = require('jsonwebtoken');
+const jwt  = require('jsonwebtoken');
+const { db } = require('../database/db');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'cmdr_secret_key_2025';
 
@@ -24,4 +25,21 @@ function adminOnly(req, res, next) {
   next();
 }
 
-module.exports = { authMiddleware, adminOnly };
+// Registro de auditoría (Ley 25.326 Art. 9 — trazabilidad de accesos)
+function auditMiddleware(accion) {
+  return (req, _res, next) => {
+    const entry = {
+      accion,
+      usuario:    req.user?.username || req.user?.dni || 'desconocido',
+      rol:        req.user?.rol || '-',
+      ip:         req.headers['x-forwarded-for'] || req.socket?.remoteAddress || '-',
+      recurso:    req.originalUrl,
+      metodo:     req.method,
+      params:     JSON.stringify(req.params),
+    };
+    db.auditLog(entry).catch(() => {}); // no-blocking, no falla si DB está ocupada
+    next();
+  };
+}
+
+module.exports = { authMiddleware, adminOnly, auditMiddleware };

@@ -686,6 +686,14 @@ button { cursor:pointer; border:none; font-family:inherit; }
         <label>Fecha de Nacimiento</label>
         <input type="date" id="loginFechaNac">
       </div>
+      <div style="margin:.75rem 0;display:flex;align-items:flex-start;gap:.5rem;">
+        <input type="checkbox" id="loginConsentimiento" style="margin-top:3px;flex-shrink:0;">
+        <label for="loginConsentimiento" style="font-size:0.78rem;color:#555;line-height:1.4;">
+          Acepto el tratamiento de mis datos personales de salud (datos sensibles) conforme a la
+          <a href="#" onclick="event.preventDefault();_mostrarPoliticaPrivacidad()" style="color:#1a3a5c;font-weight:600;">Política de Privacidad</a>
+          — Ley 25.326. No estoy obligado/a a proporcionarlos, pero son necesarios para gestionar mi turno.
+        </label>
+      </div>
       <button class="btn-login" onclick="loginPaciente()">Ingresar como Paciente</button>
       <p style="margin-top:.75rem;font-size:0.78rem;color:#888;text-align:center;">Si es tu primera vez, se crea tu cuenta automáticamente.</p>
     </div>

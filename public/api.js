@@ -224,7 +224,9 @@ async function loginPaciente() {
   const dni    = document.getElementById('loginDNI').value.trim();
   const fecha  = document.getElementById('loginFechaNac').value;
   const nombre = (document.getElementById('loginNombre') || {}).value || '';
+  const consent = document.getElementById('loginConsentimiento');
   if (!dni || !fecha) { showToast('Completá DNI y fecha de nacimiento', 'error'); return; }
+  if (consent && !consent.checked) { showToast('Debés aceptar la Política de Privacidad para continuar', 'error'); return; }
 
   const btn = document.querySelector('#loginPaciente .btn-login');
   if (btn) { btn.disabled = true; btn.textContent = 'Ingresando...'; }
@@ -967,6 +969,131 @@ async function _verificarRecordatoriosPendientes() {
   } catch (e) {
     // Silencioso — no es crítico
   }
+}
+
+// ============================================================
+//  VISOR DE ÓRDENES MÉDICAS — admin puede abrir/descargar
+// ============================================================
+function _ordenHTML(ordenFilename) {
+  if (!ordenFilename || ordenFilename === 'No cargada') return '<span style="color:#aaa;">No cargada</span>';
+  const base = API_URL + '/archivos/' + ordenFilename + '?token=' + API_TOKEN;
+  const ext  = ordenFilename.split('.').pop().toLowerCase();
+  let preview = '';
+  if (['jpg','jpeg','png'].includes(ext)) {
+    preview = '<div style="margin-top:8px;"><img src="' + base + '" style="max-width:100%;max-height:300px;border-radius:6px;border:1px solid #ddd;" onerror="this.style.display=\'none\'"></div>';
+  } else if (ext === 'pdf') {
+    preview = '<div style="margin-top:8px;"><iframe src="' + base + '" style="width:100%;height:300px;border:1px solid #ddd;border-radius:6px;" title="Orden médica"></iframe></div>';
+  }
+  return '<div>' +
+    '<a href="' + base + '" target="_blank" style="color:var(--color-info);font-weight:600;text-decoration:none;">📄 Ver orden</a>' +
+    ' &nbsp; ' +
+    '<a href="' + base + '&download=1" style="color:var(--color-primary);font-weight:600;text-decoration:none;">⬇️ Descargar</a>' +
+    preview +
+    '</div>';
+}
+
+// Override viewTurnoDetail para mostrar botones de archivo
+function viewTurnoDetail(id) {
+  const t = APP.turnos.find(x => x.id === id);
+  if (!t) return;
+  const dc = t.datosClinic || {};
+  const content = document.getElementById('admContent');
+  const estadoBadge = {
+    'Confirmado': 'badge-confirmed', 'Aprobado': 'badge-approved',
+    'Pendiente de autorización': 'badge-pending', 'Revisar': 'badge-review', 'Denegado': 'badge-denied'
+  };
+
+  content.innerHTML =
+    '<button class="btn btn-outline" style="margin-bottom:1rem;font-size:0.85rem;border-color:var(--color-border);color:var(--color-primary);" onclick="showAdmView(\'solicitudes\')">← Volver</button>' +
+    '<div class="dash-card"><div class="dash-card-header"><h4>Solicitud #' + t.id + '</h4>' +
+    '<span class="badge ' + (estadoBadge[t.estado] || 'badge-pending') + '">' + t.estado + '</span></div>' +
+    '<div class="dash-card-body">' +
+    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:2rem;flex-wrap:wrap;">' +
+
+    // Datos del turno
+    '<div><h4 style="font-size:0.85rem;color:var(--color-text-muted);margin-bottom:1rem;text-transform:uppercase;letter-spacing:1px;">Datos del Turno</h4>' +
+    '<div class="confirmation-summary">' +
+    '<div class="conf-row"><span class="cr-label">Paciente</span><span class="cr-value">' + t.paciente + '</span></div>' +
+    '<div class="conf-row"><span class="cr-label">DNI</span><span class="cr-value">' + t.dni + '</span></div>' +
+    '<div class="conf-row"><span class="cr-label">Estudio</span><span class="cr-value">' + t.estudio + '</span></div>' +
+    '<div class="conf-row"><span class="cr-label">Fecha / Hora</span><span class="cr-value">' + t.fecha + ' — ' + t.hora + '</span></div>' +
+    '<div class="conf-row"><span class="cr-label">Cobertura</span><span class="cr-value">' + (t.cobertura || '-') + '</span></div>' +
+    '<div class="conf-row"><span class="cr-label">Email</span><span class="cr-value">' + (t.email || '-') + '</span></div>' +
+    '<div class="conf-row"><span class="cr-label">WhatsApp</span><span class="cr-value">' + (t.telefono || '-') + '</span></div>' +
+    '</div></div>' +
+
+    // Datos clínicos
+    '<div><h4 style="font-size:0.85rem;color:var(--color-text-muted);margin-bottom:1rem;text-transform:uppercase;letter-spacing:1px;">Datos Clínicos</h4>' +
+    '<div class="confirmation-summary">' +
+    '<div class="conf-row"><span class="cr-label">Peso / Altura / Edad</span><span class="cr-value">' + (dc.peso||'-') + ' kg / ' + (dc.altura||'-') + ' cm / ' + (dc.edad||'-') + ' años</span></div>' +
+    '<div class="conf-row"><span class="cr-label">Sexo</span><span class="cr-value">' + (dc.sexo||'-') + '</span></div>' +
+    '<div class="conf-row"><span class="cr-label">Alergias</span><span class="cr-value">' + (dc.alergias||'-') + '</span></div>' +
+    '<div class="conf-row"><span class="cr-label">Medicación</span><span class="cr-value">' + (dc.medicacion||'-') + '</span></div>' +
+    '<div class="conf-row"><span class="cr-label">Antecedentes</span><span class="cr-value">' + (dc.antecedentes||'-') + '</span></div>' +
+    '<div class="conf-row"><span class="cr-label">Motivo</span><span class="cr-value">' + (dc.motivo||'-') + '</span></div>' +
+    '</div></div></div>' +
+
+    // Orden médica
+    '<div style="margin-top:1.5rem;"><h4 style="font-size:0.85rem;color:var(--color-text-muted);margin-bottom:.75rem;text-transform:uppercase;letter-spacing:1px;">Orden Médica</h4>' +
+    _ordenHTML(t.orden) + '</div>' +
+
+    // Acciones
+    '<div style="display:flex;gap:1rem;margin-top:2rem;flex-wrap:wrap;">' +
+    (t.estado === 'Pendiente de autorización' || t.estado === 'Revisar'
+      ? '<button class="btn btn-primary" onclick="changeEstado(' + t.id + ',\'Aprobado\')">✅ Aprobar Orden</button>' +
+        '<button class="btn btn-outline" style="border-color:var(--color-warning);color:var(--color-warning);" onclick="changeEstado(' + t.id + ',\'Revisar\')">⚠️ Solicitar Revisión</button>' +
+        '<button class="btn btn-outline" style="border-color:var(--color-danger);color:var(--color-danger);" onclick="changeEstado(' + t.id + ',\'Denegado\')">❌ Denegar</button>'
+      : '') +
+    (t.estado === 'Aprobado'
+      ? '<button class="btn btn-primary" onclick="changeEstado(' + t.id + ',\'Confirmado\')">📌 Confirmar Turno</button>'
+      : '') +
+    '</div>' +
+    '</div></div>';
+}
+
+// ============================================================
+//  CONSENTIMIENTO Y POLÍTICA DE PRIVACIDAD (Ley 25.326)
+// ============================================================
+function _mostrarPoliticaPrivacidad() {
+  const modal = document.createElement('div');
+  modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.6);z-index:9999;display:flex;align-items:center;justify-content:center;padding:1rem;';
+  modal.innerHTML =
+    '<div style="background:#fff;border-radius:12px;max-width:600px;width:100%;max-height:85vh;overflow-y:auto;padding:2rem;">' +
+    '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:1.5rem;">' +
+    '<h3 style="color:#1a3a5c;margin:0;">Política de Privacidad y Protección de Datos</h3>' +
+    '<button onclick="this.closest(\'div[style*=position]\').remove()" style="border:none;background:none;font-size:1.4rem;cursor:pointer;color:#888;">✕</button>' +
+    '</div>' +
+    '<div style="font-size:0.85rem;color:#444;line-height:1.6;">' +
+
+    '<p><strong>Responsable del tratamiento:</strong> Centro Médico de Diagnóstico Radioisotópico (CMDR) — Hospital Militar Central, Buenos Aires, Argentina.</p>' +
+
+    '<h4 style="color:#1a3a5c;margin-top:1.2rem;">1. Datos que recopilamos</h4>' +
+    '<p>Nombre completo, DNI, fecha de nacimiento, email, teléfono, cobertura médica, datos clínicos (peso, altura, edad, sexo, alergias, medicación, antecedentes, motivo de consulta) e historial de turnos. Estos datos son considerados <strong>datos sensibles</strong> conforme al Art. 2 de la Ley 25.326.</p>' +
+
+    '<h4 style="color:#1a3a5c;margin-top:1.2rem;">2. Finalidad del tratamiento</h4>' +
+    '<p>Gestión de turnos médicos, comunicaciones relacionadas con su atención, recordatorios, y facturación. Los datos no serán utilizados para fines distintos sin su consentimiento expreso.</p>' +
+
+    '<h4 style="color:#1a3a5c;margin-top:1.2rem;">3. Datos sensibles (Art. 7 y 8, Ley 25.326)</h4>' +
+    '<p>Sus datos de salud son datos sensibles. Usted <strong>no está obligado/a a proporcionarlos</strong>; sin embargo, son necesarios para gestionar correctamente su turno médico. El tratamiento se realiza en el marco de la relación médico-paciente, respetando el secreto profesional.</p>' +
+
+    '<h4 style="color:#1a3a5c;margin-top:1.2rem;">4. Transferencia a terceros (Art. 11, Ley 25.326)</h4>' +
+    '<p>Sus datos de salud <strong>no serán transferidos a terceros</strong> sin su consentimiento previo y expreso, salvo exigencia legal o requerimiento de autoridad sanitaria competente.</p>' +
+
+    '<h4 style="color:#1a3a5c;margin-top:1.2rem;">5. Seguridad (Art. 9, Ley 25.326)</h4>' +
+    '<p>Adoptamos medidas técnicas y organizativas para garantizar la seguridad y confidencialidad de sus datos: comunicaciones encriptadas (HTTPS/TLS), control de accesos con autenticación individual, registros de auditoría de accesos, y separación de entornos.</p>' +
+
+    '<h4 style="color:#1a3a5c;margin-top:1.2rem;">6. Conservación (Art. 18, Ley 26.529)</h4>' +
+    '<p>Los datos de salud se conservan por un mínimo de <strong>10 años</strong> desde el último registro, conforme a la legislación vigente sobre historia clínica.</p>' +
+
+    '<h4 style="color:#1a3a5c;margin-top:1.2rem;">7. Sus derechos (Arts. 14–16, Ley 25.326)</h4>' +
+    '<p>Usted tiene derecho a <strong>acceder</strong> a sus datos en forma gratuita (cada 6 meses), <strong>rectificarlos</strong>, <strong>actualizarlos</strong>, <strong>suprimirlos</strong> y a la <strong>confidencialidad</strong>. Para ejercer estos derechos, contáctenos en: <a href="mailto:cemedirahmc@gmail.com">cemedirahmc@gmail.com</a></p>' +
+    '<p>También puede presentar una denuncia ante la <strong>AAIP</strong> (Agencia de Acceso a la Información Pública): datospersonales@aaip.gob.ar</p>' +
+
+    '<p style="margin-top:1.5rem;font-size:0.78rem;color:#888;">Este aviso de privacidad cumple con la Ley 25.326 de Protección de Datos Personales (Argentina), la Ley 26.529 de Derechos del Paciente, y la Resolución 47/2018 de la AAIP.</p>' +
+    '</div>' +
+    '<button onclick="this.closest(\'div[style*=position]\').remove()" style="width:100%;margin-top:1.5rem;padding:.75rem;background:#1a3a5c;color:#fff;border:none;border-radius:8px;font-size:0.9rem;font-weight:600;cursor:pointer;">Cerrar</button>' +
+    '</div>';
+  document.body.appendChild(modal);
 }
 
 // ============================================================
