@@ -1334,3 +1334,178 @@ function renderMisEstudios() {
   return html;
 }
 
+
+// ============================================================
+//  PORTAL MÉDICO — NAVEGADOR POR DÍA (reemplaza Agenda de Hoy)
+// ============================================================
+
+// Estado del navegador de días
+if (!window.APP) window.APP = {};
+APP.medNavDate = new Date();
+
+function _formatFechaArg(date) {
+  const dd = String(date.getDate()).padStart(2,'0');
+  const mm = String(date.getMonth()+1).padStart(2,'0');
+  return dd + '/' + mm + '/' + date.getFullYear();
+}
+
+function _formatFechaLabel(date) {
+  const dias = ['Domingo','Lunes','Martes','Mi\xE9rcoles','Jueves','Viernes','S\xE1bado'];
+  const meses = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+  return dias[date.getDay()] + ', ' + date.getDate() + ' de ' + meses[date.getMonth()] + ' de ' + date.getFullYear();
+}
+
+function medNavDay(delta) {
+  APP.medNavDate = new Date(APP.medNavDate);
+  APP.medNavDate.setDate(APP.medNavDate.getDate() + delta);
+  const content = document.getElementById('medContent');
+  content.innerHTML = _renderDayNavigator();
+}
+
+function _renderDayNavigator() {
+  const date   = APP.medNavDate;
+  const fechaArg = _formatFechaArg(date);
+  const label  = _formatFechaLabel(date);
+  const turnos = APP.turnos.filter(t => t.fecha === fechaArg && t.estado !== 'Denegado')
+                   .sort((a,b) => a.hora.localeCompare(b.hora));
+
+  const isHoy = _formatFechaArg(new Date()) === fechaArg;
+
+  let html =
+    // Navegador de fecha
+    '<div style="display:flex;align-items:center;gap:1rem;margin-bottom:1.5rem;flex-wrap:wrap;">' +
+    '<button onclick="medNavDay(-1)" style="width:40px;height:40px;border-radius:50%;border:2px solid var(--color-border);background:var(--color-white);font-size:1.1rem;cursor:pointer;display:flex;align-items:center;justify-content:center;" title="D\xEDa anterior">&#x2190;</button>' +
+    '<div style="flex:1;text-align:center;">' +
+      '<div style="font-size:1.15rem;font-weight:800;color:var(--color-primary);">' + label + '</div>' +
+      (isHoy ? '<span style="font-size:0.75rem;background:var(--color-primary);color:white;padding:2px 10px;border-radius:99px;">Hoy</span>' : '') +
+    '</div>' +
+    '<button onclick="medNavDay(1)" style="width:40px;height:40px;border-radius:50%;border:2px solid var(--color-border);background:var(--color-white);font-size:1.1rem;cursor:pointer;display:flex;align-items:center;justify-content:center;" title="D\xEDa siguiente">&#x2192;</button>' +
+    '<button onclick="APP.medNavDate=new Date();document.getElementById(\'medContent\').innerHTML=_renderDayNavigator();" style="font-size:0.8rem;padding:6px 14px;border-radius:6px;border:1px solid var(--color-border);background:white;cursor:pointer;color:var(--color-primary);">Hoy</button>' +
+    '</div>';
+
+  if (!turnos.length) {
+    html += '<div class="dash-card"><div class="dash-card-body" style="text-align:center;padding:3rem;">' +
+      '<div style="font-size:3rem;margin-bottom:1rem;">&#x1F5D3;&#xFE0F;</div>' +
+      '<p style="color:var(--color-text-muted);">No hay turnos para este d\xEDa</p>' +
+      '</div></div>';
+    return html;
+  }
+
+  html += '<div style="margin-bottom:.75rem;color:var(--color-text-muted);font-size:0.9rem;">' +
+    turnos.length + ' paciente' + (turnos.length !== 1 ? 's' : '') + ' agendado' + (turnos.length !== 1 ? 's' : '') +
+    '</div>';
+
+  turnos.forEach(t => {
+    const dc = t.datosClinic || {};
+    const tieneInforme = !!t.informe;
+    const fileInputId = 'infFile_' + t.id;
+
+    html +=
+      '<div class="dash-card" style="margin-bottom:1.25rem;">' +
+      '<div class="dash-card-header" style="background:var(--color-bg);">' +
+        '<div style="display:flex;align-items:center;gap:1rem;">' +
+          '<div style="background:var(--color-primary);color:var(--color-gold);font-weight:800;font-size:1rem;padding:8px 14px;border-radius:8px;">' + t.hora + '</div>' +
+          '<div>' +
+            '<div style="font-weight:700;font-size:1rem;">' + t.paciente + '</div>' +
+            '<div style="font-size:0.85rem;color:var(--color-text-muted);">' + t.estudio + '</div>' +
+          '</div>' +
+        '</div>' +
+        '<div style="display:flex;align-items:center;gap:.5rem;">' +
+          _badgeEstado(t.estado) +
+          (tieneInforme ? '<span style="font-size:0.75rem;color:#2e7d32;font-weight:700;background:#e8f5e9;padding:3px 8px;border-radius:99px;">&#x2705; Informe</span>' : '') +
+        '</div>' +
+      '</div>' +
+      '<div class="dash-card-body">' +
+        '<div style="display:grid;grid-template-columns:1fr 1fr;gap:1.5rem;margin-bottom:1rem;">' +
+
+          // Datos clínicos
+          '<div>' +
+          '<h5 style="font-size:0.78rem;color:var(--color-text-muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:.6rem;">Datos Cl\xEDnicos</h5>' +
+          '<div style="font-size:0.85rem;display:grid;gap:.3rem;">' +
+            _datoRow('Peso', dc.peso ? dc.peso + ' kg' : '-') +
+            _datoRow('Altura', dc.altura ? dc.altura + ' cm' : '-') +
+            _datoRow('Edad', dc.edad ? dc.edad + ' a\xF1os' : '-') +
+            _datoRow('Sexo', dc.sexo || '-') +
+            _datoRow('Alergias', dc.alergias || 'Ninguna') +
+            _datoRow('Medicaci\xF3n', dc.medicacion || 'Ninguna') +
+            _datoRow('Motivo', dc.motivo || '-') +
+          '</div></div>' +
+
+          // Informe
+          '<div>' +
+          '<h5 style="font-size:0.78rem;color:var(--color-text-muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:.6rem;">Informe M\xE9dico</h5>' +
+          (tieneInforme
+            ? '<div style="background:#e8f5e9;border:1px solid #c8e6c9;border-radius:8px;padding:10px;margin-bottom:.75rem;">' +
+              '<div style="font-size:0.8rem;color:#2e7d32;font-weight:700;margin-bottom:6px;">&#x2705; Informe cargado</div>' +
+              '<a href="' + _archivoURL(t.informe) + '" target="_blank" style="font-size:0.82rem;color:#1565c0;margin-right:8px;">&#x1F4C4; Ver</a>' +
+              '<a href="' + _archivoURL(t.informe) + '&download=1" style="font-size:0.82rem;color:#1565c0;">&#x2B07;&#xFE0F; Descargar</a>' +
+              '</div>'
+            : '') +
+          '<label style="display:block;font-size:0.82rem;font-weight:600;margin-bottom:.4rem;">' +
+            (tieneInforme ? 'Reemplazar informe:' : 'Cargar informe (PDF/JPG/PNG):') +
+          '</label>' +
+          '<input type="file" id="' + fileInputId + '" accept=".pdf,.jpg,.jpeg,.png" style="font-size:0.82rem;width:100%;margin-bottom:.5rem;">' +
+          '<button class="btn btn-primary" style="font-size:0.82rem;padding:6px 16px;width:100%;" onclick="uploadInformeDay(' + t.id + ',\'' + fileInputId + '\')">&#x1F4E4; Subir Informe</button>' +
+          '</div>' +
+
+        '</div>' +
+      '</div></div>';
+  });
+
+  return html;
+}
+
+function _datoRow(label, value) {
+  return '<div style="display:flex;gap:.5rem;"><span style="color:var(--color-text-muted);min-width:80px;">' + label + ':</span><span style="font-weight:600;">' + value + '</span></div>';
+}
+
+async function uploadInformeDay(turnoId, fileInputId) {
+  const fileInput = document.getElementById(fileInputId);
+  if (!fileInput || !fileInput.files[0]) { showToast('Seleccion\xE1 un archivo primero', 'error'); return; }
+  const formData = new FormData();
+  formData.append('informe', fileInput.files[0]);
+  try {
+    showToast('Subiendo informe...', 'info');
+    const res = await fetch(API_URL + '/archivos/informe/' + turnoId, {
+      method: 'POST',
+      headers: { 'Authorization': 'Bearer ' + API_TOKEN },
+      body: formData
+    });
+    if (!res.ok) { const e = await res.json(); throw new Error(e.error || 'Error al subir'); }
+    showToast('Informe cargado correctamente');
+    await cargarTurnos();
+    document.getElementById('medContent').innerHTML = _renderDayNavigator();
+  } catch (e) {
+    showToast('Error: ' + e.message, 'error');
+  }
+}
+
+// Override definitivo de showMedView con navegador de dias
+showMedView = function(view) {
+  document.querySelectorAll('#sidebarMed .sidebar-link').forEach(l => l.classList.remove('active'));
+  if (typeof event !== 'undefined' && event && event.target && event.target.closest)
+    event.target.closest && event.target.closest('.sidebar-link') && event.target.closest('.sidebar-link').classList.add('active');
+
+  const titles = { 'hoy': 'Agenda', 'semana': 'Esta Semana', 'todos': 'Todos los Turnos', 'pacientes': 'Pacientes' };
+  document.getElementById('medViewTitle').textContent = titles[view] || 'Portal M\xE9dico';
+
+  const content = document.getElementById('medContent');
+  const overlay = document.getElementById('sidebarOverlayMed');
+  document.getElementById('sidebarMed').classList.remove('mobile-open');
+  if (overlay) overlay.classList.remove('active');
+
+  content.innerHTML = '<p style="color:var(--color-text-muted);text-align:center;padding:3rem;">Cargando...</p>';
+
+  cargarTurnos().then(() => {
+    if (view === 'hoy') {
+      APP.medNavDate = new Date();
+      content.innerHTML = _renderDayNavigator();
+    } else if (view === 'semana') {
+      content.innerHTML = _medAgendaSemanaV2();
+    } else if (view === 'todos') {
+      content.innerHTML = _medTodosTurnosV2();
+    } else if (view === 'pacientes') {
+      _medPacientes(content);
+    }
+  });
+};

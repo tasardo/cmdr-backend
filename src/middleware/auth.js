@@ -25,6 +25,13 @@ function adminOnly(req, res, next) {
   next();
 }
 
+function adminOrMedico(req, res, next) {
+  if (req.user?.rol !== 'admin' && req.user?.rol !== 'medico') {
+    return res.status(403).json({ error: 'Acceso restringido a médicos y administradores' });
+  }
+  next();
+}
+
 // Registro de auditoría (Ley 25.326 Art. 9 — trazabilidad de accesos)
 function auditMiddleware(accion) {
   return (req, _res, next) => {
@@ -42,4 +49,4 @@ function auditMiddleware(accion) {
   };
 }
 
-module.exports = { authMiddleware, adminOnly, auditMiddleware };
+module.exports = { authMiddleware, adminOnly, adminOrMedico, auditMiddleware };

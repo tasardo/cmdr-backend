@@ -1,10 +1,10 @@
 const express = require('express');
 const { db }  = require('../database/db');
-const { authMiddleware, adminOnly } = require('../middleware/auth');
+const { authMiddleware, adminOnly, adminOrMedico } = require('../middleware/auth');
 
 const router = express.Router();
 
-router.get('/', authMiddleware, adminOnly, async (req, res) => {
+router.get('/', authMiddleware, adminOrMedico, async (req, res) => {
   try { res.json(await db.getPacientes()); }
   catch (e) { res.status(500).json({ error: e.message }); }
 });
