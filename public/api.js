@@ -288,6 +288,7 @@ async function loginMedico() {
     hideAllDashboards();
     document.getElementById('dashMedico').classList.add('active');
     document.getElementById('medUserName').textContent = APP.medico.nombre;
+    const wf = document.getElementById('wppFab'); if (wf) wf.style.display = 'none';
     showMedView('hoy');
     showToast('Bienvenido/a, ' + APP.medico.nombre);
   } catch (e) {
@@ -465,6 +466,7 @@ async function loginAdmin() {
       hideAllDashboards();
       document.getElementById('dashMedico').classList.add('active');
       document.getElementById('medUserName').textContent = APP.medico.nombre;
+      const wf2 = document.getElementById('wppFab'); if (wf2) wf2.style.display = 'none';
       showMedView('hoy');
       showToast('Bienvenido/a, ' + APP.medico.nombre);
       return;
@@ -479,6 +481,7 @@ async function loginAdmin() {
     hideAllDashboards();
     document.getElementById('dashAdmin').classList.add('active');
     document.getElementById('chatFab').style.display = 'flex';
+    const wf3 = document.getElementById('wppFab'); if (wf3) wf3.style.display = 'none';
     showAdmView('dashboard');
     showToast('Bienvenido al panel de administración');
   } catch (e) {
@@ -500,6 +503,7 @@ function logout() {
   document.getElementById('publicSite').classList.add('visible');
   document.getElementById('chatFab').style.display = 'none';
   document.getElementById('chatPanel').classList.remove('open');
+  const wfOut = document.getElementById('wppFab'); if (wfOut) wfOut.style.display = '';
   window.scrollTo({ top: 0 });
   showToast('Sesión cerrada', 'info');
 }
@@ -1518,36 +1522,114 @@ async function _medPacientesV2(content) {
   try {
     const pacientes = await apiCall('GET', '/pacientes');
     APP._medPacientesList = pacientes;
-    const allTurnos = APP.turnos || [];
+    if (!APP.medPacFecha) APP.medPacFecha = new Date();
+    APP.medPacSearchQ = '';
 
-    let html =
-      '<p style="color:var(--color-text-muted);font-size:0.85rem;margin-bottom:1rem;">Hac\xE9 clic en un paciente para ver su historia cl\xEDnica y cargar informes.</p>' +
+    const btnStyle = 'width:40px;height:40px;border-radius:50%;border:2px solid var(--color-border);background:white;font-size:1.1rem;cursor:pointer;';
+    const fechaArg = _formatFechaArg(APP.medPacFecha);
+    const isHoy = _formatFechaArg(new Date()) === fechaArg;
+
+    const html =
+      // Barra de búsqueda
+      '<div style="margin-bottom:1.25rem;">' +
+      '<input id="medPacSearch" type="text" placeholder="&#x1F50D; Buscar por nombre o DNI..." ' +
+      'oninput="APP.medPacSearchQ=this.value;_medPacRenderTable()" ' +
+      'style="width:100%;padding:10px 16px;border:1.5px solid var(--color-border);border-radius:8px;font-size:0.95rem;box-sizing:border-box;">' +
+      '</div>' +
+      // Navegador de fecha
+      '<div id="medPacDateNav" style="display:flex;align-items:center;gap:1rem;margin-bottom:1.25rem;flex-wrap:wrap;">' +
+      '<button onclick="medPacNavDay(-1)" style="' + btnStyle + '">&#x2190;</button>' +
+      '<div style="flex:1;text-align:center;">' +
+        '<div id="medPacDateLabel" style="font-size:1.1rem;font-weight:800;color:var(--color-primary);">' + _formatFechaLabel(APP.medPacFecha) + '</div>' +
+        '<span id="medPacHoyBadge" style="font-size:0.75rem;background:var(--color-primary);color:white;padding:2px 10px;border-radius:99px;' + (isHoy ? '' : 'display:none;') + '">Hoy</span>' +
+      '</div>' +
+      '<button onclick="medPacNavDay(1)" style="' + btnStyle + '">&#x2192;</button>' +
+      '<button onclick="APP.medPacFecha=new Date();_medPacNavUpdate();_medPacRenderTable();" style="font-size:0.8rem;padding:6px 14px;border-radius:6px;border:1px solid var(--color-border);background:white;cursor:pointer;color:var(--color-primary);">Hoy</button>' +
+      '</div>' +
+      // Contenedor de la tabla (se actualiza sin tocar lo de arriba)
+      '<div id="medPacList"></div>';
+
+    content.innerHTML = html;
+    _medPacRenderTable();
+  } catch (e) {
+    content.innerHTML = '<p style="color:red;padding:2rem;">Error: ' + e.message + '</p>';
+  }
+}
+
+function _medPacNavUpdate() {
+  const labelEl = document.getElementById('medPacDateLabel');
+  const badgeEl = document.getElementById('medPacHoyBadge');
+  const isHoy   = _formatFechaArg(new Date()) === _formatFechaArg(APP.medPacFecha);
+  if (labelEl) labelEl.textContent = _formatFechaLabel(APP.medPacFecha);
+  if (badgeEl) badgeEl.style.display = isHoy ? '' : 'none';
+}
+
+function medPacNavDay(delta) {
+  APP.medPacFecha = new Date(APP.medPacFecha);
+  APP.medPacFecha.setDate(APP.medPacFecha.getDate() + delta);
+  _medPacNavUpdate();
+  _medPacRenderTable();
+}
+
+function _medPacRenderTable() {
+  const listEl = document.getElementById('medPacList');
+  if (!listEl) return;
+  const allTurnos = APP.turnos || [];
+  const pacientes = APP._medPacientesList || [];
+  const q = (APP.medPacSearchQ || '').toLowerCase().trim();
+
+  // Mostrar/ocultar navegador de fecha según búsqueda
+  const dateNav = document.getElementById('medPacDateNav');
+  if (dateNav) dateNav.style.display = q ? 'none' : 'flex';
+
+  let pacsFiltrados;
+  if (q) {
+    pacsFiltrados = pacientes.filter(p =>
+      p.nombre.toLowerCase().includes(q) || p.dni.replace(/\./g,'').includes(q)
+    );
+  } else {
+    const fechaArg = _formatFechaArg(APP.medPacFecha);
+    const dnisDelDia = new Set(
+      allTurnos.filter(t => t.fecha === fechaArg && t.estado !== 'Denegado').map(t => t.dni)
+    );
+    pacsFiltrados = pacientes.filter(p => dnisDelDia.has(p.dni.replace(/\./g,'')));
+  }
+
+  let html = '';
+  if (!q) {
+    html += '<div style="margin-bottom:.75rem;color:var(--color-text-muted);font-size:0.9rem;">' +
+      pacsFiltrados.length + ' paciente' + (pacsFiltrados.length !== 1 ? 's' : '') +
+      ' agendado' + (pacsFiltrados.length !== 1 ? 's' : '') + '</div>';
+  }
+
+  if (!pacsFiltrados.length) {
+    html += '<div class="dash-card"><div class="dash-card-body" style="text-align:center;padding:2rem;color:var(--color-text-muted);">' +
+      (q ? 'Sin resultados para "' + q + '"' : 'No hay pacientes agendados para este d\xEDa') +
+      '</div></div>';
+  } else {
+    html +=
       '<div class="dash-card"><div class="dash-card-body" style="overflow-x:auto;">' +
-      '<table class="data-table"><thead><tr><th>Paciente</th><th>DNI</th><th>Cobertura</th><th>Tel\xE9fono</th><th>\xDAltimo Estudio</th><th></th></tr></thead><tbody>';
-
-    pacientes.forEach(p => {
+      '<table class="data-table"><thead><tr><th>Paciente</th><th>DNI</th><th>Cobertura</th><th>Tel\xE9fono</th><th>Estudio</th><th></th></tr></thead><tbody>';
+    pacsFiltrados.forEach(p => {
       const dniNorm = p.dni.replace(/\./g,'');
       const turnosPac = allTurnos.filter(t => t.dni === dniNorm).sort((a,b) => b.fecha.localeCompare(a.fecha));
       const ultimo = turnosPac[0];
-      const estudiosStr = ultimo
+      const estStr = ultimo
         ? '<span style="font-size:0.8rem;">' + ultimo.estudio + '<br><span style="color:var(--color-text-muted);">' + ultimo.fecha + '</span></span>'
         : '<span style="color:var(--color-text-muted);font-size:0.8rem;">Sin turnos</span>';
-
       html +=
         '<tr style="cursor:pointer;" onclick="_medPatientDetail(\'' + dniNorm + '\')">' +
         '<td><strong>' + p.nombre + '</strong></td>' +
         '<td>' + p.dni + '</td>' +
         '<td>' + (p.cobertura||'-') + '</td>' +
         '<td>' + (p.telefono||'-') + '</td>' +
-        '<td>' + estudiosStr + '</td>' +
+        '<td>' + estStr + '</td>' +
         '<td><button class="btn btn-outline" style="font-size:0.78rem;padding:3px 12px;" onclick="event.stopPropagation();_medPatientDetail(\'' + dniNorm + '\')">Ver &#x2192;</button></td>' +
         '</tr>';
     });
     html += '</tbody></table></div></div>';
-    content.innerHTML = html;
-  } catch (e) {
-    content.innerHTML = '<p style="color:red;padding:2rem;">Error: ' + e.message + '</p>';
   }
+  listEl.innerHTML = html;
 }
 
 async function _medPatientDetail(dni) {
