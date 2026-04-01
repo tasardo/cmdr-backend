@@ -1517,22 +1517,30 @@ showMedView = function(view) {
 async function _medPacientesV2(content) {
   try {
     const pacientes = await apiCall('GET', '/pacientes');
-    // Guardar lista para acceder desde el detalle
     APP._medPacientesList = pacientes;
+    const allTurnos = APP.turnos || [];
 
     let html =
       '<p style="color:var(--color-text-muted);font-size:0.85rem;margin-bottom:1rem;">Hac\xE9 clic en un paciente para ver su historia cl\xEDnica y cargar informes.</p>' +
       '<div class="dash-card"><div class="dash-card-body" style="overflow-x:auto;">' +
-      '<table class="data-table"><thead><tr><th>Paciente</th><th>DNI</th><th>Cobertura</th><th>Tel\xE9fono</th><th></th></tr></thead><tbody>';
+      '<table class="data-table"><thead><tr><th>Paciente</th><th>DNI</th><th>Cobertura</th><th>Tel\xE9fono</th><th>\xDAltimo Estudio</th><th></th></tr></thead><tbody>';
 
     pacientes.forEach(p => {
+      const dniNorm = p.dni.replace(/\./g,'');
+      const turnosPac = allTurnos.filter(t => t.dni === dniNorm).sort((a,b) => b.fecha.localeCompare(a.fecha));
+      const ultimo = turnosPac[0];
+      const estudiosStr = ultimo
+        ? '<span style="font-size:0.8rem;">' + ultimo.estudio + '<br><span style="color:var(--color-text-muted);">' + ultimo.fecha + '</span></span>'
+        : '<span style="color:var(--color-text-muted);font-size:0.8rem;">Sin turnos</span>';
+
       html +=
-        '<tr style="cursor:pointer;" onclick="_medPatientDetail(\'' + p.dni.replace(/\./g,'') + '\')">' +
+        '<tr style="cursor:pointer;" onclick="_medPatientDetail(\'' + dniNorm + '\')">' +
         '<td><strong>' + p.nombre + '</strong></td>' +
         '<td>' + p.dni + '</td>' +
         '<td>' + (p.cobertura||'-') + '</td>' +
         '<td>' + (p.telefono||'-') + '</td>' +
-        '<td><button class="btn btn-outline" style="font-size:0.78rem;padding:3px 12px;" onclick="event.stopPropagation();_medPatientDetail(\'' + p.dni.replace(/\./g,'') + '\')">Ver &#x2192;</button></td>' +
+        '<td>' + estudiosStr + '</td>' +
+        '<td><button class="btn btn-outline" style="font-size:0.78rem;padding:3px 12px;" onclick="event.stopPropagation();_medPatientDetail(\'' + dniNorm + '\')">Ver &#x2192;</button></td>' +
         '</tr>';
     });
     html += '</tbody></table></div></div>';
@@ -1681,7 +1689,7 @@ showMedView = function(view) {
   content.innerHTML = '<p style="color:var(--color-text-muted);text-align:center;padding:3rem;">Cargando...</p>';
 
   if (view === 'pacientes') {
-    _medPacientesV2(content);
+    cargarTurnos().then(() => _medPacientesV2(content));
     return;
   }
 

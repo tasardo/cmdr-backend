@@ -14,9 +14,16 @@ async function conNombre(t) {
 // GET /api/turnos
 router.get('/', authMiddleware, auditMiddleware('ver_turnos'), async (req, res) => {
   try {
-    const turnos = req.user.rol === 'admin'
-      ? await db.getTurnos()
-      : await db.getTurnosByDni(req.user.dni);
+    let turnos;
+    if (req.user.rol === 'admin' || req.user.rol === 'medico') {
+      turnos = await db.getTurnos();
+      if (req.query.dni) {
+        const qDni = req.query.dni.replace(/\./g, '');
+        turnos = turnos.filter(t => (t.paciente_dni || '').replace(/\./g, '') === qDni);
+      }
+    } else {
+      turnos = await db.getTurnosByDni(req.user.dni);
+    }
     res.json(await Promise.all(turnos.map(conNombre)));
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
