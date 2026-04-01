@@ -1509,3 +1509,190 @@ showMedView = function(view) {
     }
   });
 };
+
+// ============================================================
+//  PORTAL MÉDICO — PACIENTES: lista clickeable + detalle
+// ============================================================
+
+async function _medPacientesV2(content) {
+  try {
+    const pacientes = await apiCall('GET', '/pacientes');
+    // Guardar lista para acceder desde el detalle
+    APP._medPacientesList = pacientes;
+
+    let html =
+      '<p style="color:var(--color-text-muted);font-size:0.85rem;margin-bottom:1rem;">Hac\xE9 clic en un paciente para ver su historia cl\xEDnica y cargar informes.</p>' +
+      '<div class="dash-card"><div class="dash-card-body" style="overflow-x:auto;">' +
+      '<table class="data-table"><thead><tr><th>Paciente</th><th>DNI</th><th>Cobertura</th><th>Tel\xE9fono</th><th></th></tr></thead><tbody>';
+
+    pacientes.forEach(p => {
+      html +=
+        '<tr style="cursor:pointer;" onclick="_medPatientDetail(\'' + p.dni.replace(/\./g,'') + '\')">' +
+        '<td><strong>' + p.nombre + '</strong></td>' +
+        '<td>' + p.dni + '</td>' +
+        '<td>' + (p.cobertura||'-') + '</td>' +
+        '<td>' + (p.telefono||'-') + '</td>' +
+        '<td><button class="btn btn-outline" style="font-size:0.78rem;padding:3px 12px;" onclick="event.stopPropagation();_medPatientDetail(\'' + p.dni.replace(/\./g,'') + '\')">Ver &#x2192;</button></td>' +
+        '</tr>';
+    });
+    html += '</tbody></table></div></div>';
+    content.innerHTML = html;
+  } catch (e) {
+    content.innerHTML = '<p style="color:red;padding:2rem;">Error: ' + e.message + '</p>';
+  }
+}
+
+async function _medPatientDetail(dni) {
+  const content = document.getElementById('medContent');
+  content.innerHTML = '<p style="color:var(--color-text-muted);text-align:center;padding:3rem;">Cargando...</p>';
+
+  try {
+    // Cargar datos del paciente y sus turnos frescos
+    await cargarTurnosPorDni(dni);
+    const p = APP._medPacientesList && APP._medPacientesList.find(x => x.dni.replace(/\./g,'') === dni);
+    const nombre = p ? p.nombre : 'Paciente ' + dni;
+    const turnos = APP._medPatientTurnos || [];
+
+    let html =
+      '<button class="btn btn-outline" style="margin-bottom:1rem;font-size:0.85rem;" onclick="_medPacientesV2(document.getElementById(\'medContent\'))">&#x2190; Volver a Pacientes</button>' +
+
+      // Header paciente
+      '<div class="dash-card" style="margin-bottom:1.5rem;">' +
+      '<div class="dash-card-header"><h4>&#x1F464; ' + nombre + '</h4></div>' +
+      '<div class="dash-card-body">' +
+      '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:1rem;font-size:0.9rem;">' +
+      '<div><span style="color:var(--color-text-muted);">DNI</span><br><strong>' + (p ? p.dni : dni) + '</strong></div>' +
+      '<div><span style="color:var(--color-text-muted);">Cobertura</span><br><strong>' + (p ? (p.cobertura||'-') : '-') + '</strong></div>' +
+      '<div><span style="color:var(--color-text-muted);">Tel\xE9fono</span><br><strong>' + (p ? (p.telefono||'-') : '-') + '</strong></div>' +
+      '<div><span style="color:var(--color-text-muted);">Email</span><br><strong>' + (p ? (p.email||'-') : '-') + '</strong></div>' +
+      '</div></div></div>' +
+
+      // Historial de turnos
+      '<h4 style="font-size:0.9rem;color:var(--color-text-muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:1rem;">Historia Cl\xEDnica (' + turnos.length + ' turno' + (turnos.length!==1?'s':'') + ')</h4>';
+
+    if (!turnos.length) {
+      html += '<div class="dash-card"><div class="dash-card-body" style="text-align:center;padding:2rem;color:var(--color-text-muted);">Sin turnos registrados</div></div>';
+    }
+
+    turnos.sort((a,b) => b.fecha.localeCompare(a.fecha)).forEach(t => {
+      const dc = t.datosClinic || {};
+      const fileId = 'infPac_' + t.id;
+      const tieneInforme = !!t.informe;
+
+      html +=
+        '<div class="dash-card" style="margin-bottom:1rem;">' +
+        '<div class="dash-card-header" style="background:var(--color-bg);">' +
+          '<div>' +
+            '<div style="font-weight:700;">' + t.estudio + '</div>' +
+            '<div style="font-size:0.85rem;color:var(--color-text-muted);">&#x1F4C5; ' + t.fecha + ' &#x2014; ' + t.hora + ' hs</div>' +
+          '</div>' +
+          '<div style="display:flex;gap:.5rem;align-items:center;">' +
+            _badgeEstado(t.estado) +
+            (tieneInforme ? '<span style="font-size:0.75rem;color:#2e7d32;font-weight:700;background:#e8f5e9;padding:3px 8px;border-radius:99px;">&#x2705; Informe</span>' : '') +
+          '</div>' +
+        '</div>' +
+        '<div class="dash-card-body">' +
+          '<div style="display:grid;grid-template-columns:1fr 1fr;gap:1.5rem;">' +
+
+            // Datos clinicos
+            '<div>' +
+            '<h5 style="font-size:0.78rem;color:var(--color-text-muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:.6rem;">Datos Cl\xEDnicos</h5>' +
+            '<div style="font-size:0.85rem;display:grid;gap:.3rem;">' +
+              _datoRow('Peso',       dc.peso      ? dc.peso + ' kg'      : '-') +
+              _datoRow('Altura',     dc.altura    ? dc.altura + ' cm'    : '-') +
+              _datoRow('Edad',       dc.edad      ? dc.edad + ' a\xF1os' : '-') +
+              _datoRow('Sexo',       dc.sexo      || '-') +
+              _datoRow('Alergias',   dc.alergias  || 'Ninguna') +
+              _datoRow('Medicaci\xF3n', dc.medicacion || 'Ninguna') +
+              _datoRow('Antecedentes', dc.antecedentes || '-') +
+              _datoRow('Motivo',     dc.motivo    || '-') +
+            '</div></div>' +
+
+            // Informe
+            '<div>' +
+            '<h5 style="font-size:0.78rem;color:var(--color-text-muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:.6rem;">Informe M\xE9dico</h5>' +
+            (tieneInforme
+              ? '<div style="background:#e8f5e9;border:1px solid #c8e6c9;border-radius:8px;padding:10px;margin-bottom:.75rem;">' +
+                '<div style="font-size:0.8rem;color:#2e7d32;font-weight:700;margin-bottom:6px;">&#x2705; Informe cargado</div>' +
+                '<a href="' + _archivoURL(t.informe) + '" target="_blank" style="font-size:0.82rem;color:#1565c0;margin-right:8px;">&#x1F4C4; Ver</a>' +
+                '<a href="' + _archivoURL(t.informe) + '&download=1" style="font-size:0.82rem;color:#1565c0;">&#x2B07;&#xFE0F; Descargar</a>' +
+                '</div>'
+              : '') +
+            '<label style="display:block;font-size:0.82rem;font-weight:600;margin-bottom:.4rem;">' + (tieneInforme ? 'Reemplazar:' : 'Cargar informe (PDF/JPG/PNG):') + '</label>' +
+            '<input type="file" id="' + fileId + '" accept=".pdf,.jpg,.jpeg,.png" style="font-size:0.82rem;width:100%;margin-bottom:.5rem;">' +
+            '<button class="btn btn-primary" style="font-size:0.82rem;padding:6px 16px;width:100%;" onclick="uploadInformePac(' + t.id + ',\'' + fileId + '\',\'' + dni + '\')">&#x1F4E4; Subir Informe</button>' +
+            '</div>' +
+
+          '</div>' +
+        '</div></div>';
+    });
+
+    content.innerHTML = html;
+  } catch (e) {
+    content.innerHTML = '<p style="color:red;padding:2rem;">Error: ' + e.message + '</p>';
+  }
+}
+
+async function cargarTurnosPorDni(dni) {
+  try {
+    const turnos = await apiCall('GET', '/turnos?dni=' + dni);
+    APP._medPatientTurnos = turnos.map(normalizeTurno);
+  } catch (e) {
+    // fallback: filtrar desde APP.turnos
+    APP._medPatientTurnos = APP.turnos.filter(t => t.dni === dni);
+  }
+}
+
+async function uploadInformePac(turnoId, fileInputId, dni) {
+  const fileInput = document.getElementById(fileInputId);
+  if (!fileInput || !fileInput.files[0]) { showToast('Seleccion\xE1 un archivo primero', 'error'); return; }
+  const formData = new FormData();
+  formData.append('informe', fileInput.files[0]);
+  try {
+    showToast('Subiendo informe...', 'info');
+    const res = await fetch(API_URL + '/archivos/informe/' + turnoId, {
+      method: 'POST',
+      headers: { 'Authorization': 'Bearer ' + API_TOKEN },
+      body: formData
+    });
+    if (!res.ok) { const e = await res.json(); throw new Error(e.error || 'Error al subir'); }
+    showToast('Informe cargado correctamente');
+    await cargarTurnos();
+    _medPatientDetail(dni);
+  } catch (e) {
+    showToast('Error: ' + e.message, 'error');
+  }
+}
+
+// Override final de showMedView — usa _medPacientesV2
+showMedView = function(view) {
+  document.querySelectorAll('#sidebarMed .sidebar-link').forEach(l => l.classList.remove('active'));
+  if (typeof event !== 'undefined' && event && event.target && event.target.closest)
+    event.target.closest('.sidebar-link') && event.target.closest('.sidebar-link').classList.add('active');
+
+  const titles = { 'hoy': 'Agenda', 'semana': 'Esta Semana', 'todos': 'Todos los Turnos', 'pacientes': 'Pacientes' };
+  document.getElementById('medViewTitle').textContent = titles[view] || 'Portal M\xE9dico';
+
+  const content = document.getElementById('medContent');
+  document.getElementById('sidebarMed').classList.remove('mobile-open');
+  const ov = document.getElementById('sidebarOverlayMed');
+  if (ov) ov.classList.remove('active');
+
+  content.innerHTML = '<p style="color:var(--color-text-muted);text-align:center;padding:3rem;">Cargando...</p>';
+
+  if (view === 'pacientes') {
+    _medPacientesV2(content);
+    return;
+  }
+
+  cargarTurnos().then(() => {
+    if (view === 'hoy') {
+      APP.medNavDate = new Date();
+      content.innerHTML = _renderDayNavigator();
+    } else if (view === 'semana') {
+      content.innerHTML = _medAgendaSemanaV2();
+    } else if (view === 'todos') {
+      content.innerHTML = _medTodosTurnosV2();
+    }
+  });
+};
