@@ -6,6 +6,7 @@ const { v2: cloudinary } = require('cloudinary');
 const { CloudinaryStorage } = require('multer-storage-cloudinary');
 const jwt      = require('jsonwebtoken');
 const { authMiddleware } = require('../middleware/auth');
+const db = require('../database/db');
 
 const router = express.Router();
 
@@ -64,6 +65,23 @@ router.post('/upload', authMiddleware, upload.single('orden'), (req, res) => {
     originalname: req.file.originalname,
     size: req.file.size,
   });
+});
+
+// POST /api/archivos/informe/:turnoId — médico/admin sube informe al turno
+router.post('/informe/:turnoId', authMiddleware, upload.single('informe'), async (req, res) => {
+  if (!req.file) return res.status(400).json({ error: 'No se recibió ningún archivo' });
+  if (req.user?.rol !== 'medico' && req.user?.rol !== 'admin')
+    return res.status(403).json({ error: 'Solo médicos o administradores pueden subir informes' });
+  try {
+    const id = parseInt(req.params.turnoId);
+    const turno = await db.getTurno(id);
+    if (!turno) return res.status(404).json({ error: 'Turno no encontrado' });
+    const filename = cloudinaryOk ? req.file.path : req.file.filename;
+    await db.updateTurno(id, { informe_archivo: filename });
+    res.json({ ok: true, informe_archivo: filename });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
 });
 
 // GET /api/archivos/:filename — solo para fallback local

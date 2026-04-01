@@ -194,6 +194,7 @@ function normalizeTurno(t) {
     cobertura: t.cobertura || '',
     email: t.email || '',
     orden: t.orden_archivo || 'No cargada',
+    informe: t.informe_archivo || null,
     datosClinic: {
       peso: t.peso || '',
       altura: t.altura || '',
@@ -803,7 +804,8 @@ function showPacView(view) {
     return;
   }
   if (view === 'mis-estudios') {
-    content.innerHTML = renderMisEstudios();
+    content.innerHTML = '<p style="color:var(--color-text-muted);text-align:center;padding:3rem;">Cargando...</p>';
+    cargarTurnos().then(() => { content.innerHTML = renderMisEstudios(); });
     return;
   }
 
@@ -1110,3 +1112,225 @@ window.addEventListener('load', () => {
   // Auto-formato DNI en el login
   _setupDNIInput('loginDNI');
 });
+
+// ============================================================
+//  PORTAL MÉDICO — DETALLE DE TURNO + SUBIR INFORME
+// ============================================================
+function viewMedTurnoDetail(id) {
+  const t = APP.turnos.find(x => x.id === id);
+  if (!t) return;
+  const dc = t.datosClinic || {};
+  const content = document.getElementById('medContent');
+
+  const informeSection = t.informe
+    ? '<div style="margin-top:1rem;padding:12px;background:#e8f5e9;border-radius:8px;border:1px solid #c8e6c9;">' +
+      '<strong style="color:#2e7d32;">&#x2705; Informe cargado</strong><br>' +
+      '<a href="' + _archivoURL(t.informe) + '" target="_blank" style="color:#1565c0;">&#x1F4C4; Ver informe</a>' +
+      ' &nbsp; <a href="' + _archivoURL(t.informe) + '&download=1" style="color:#1565c0;">&#x2B07;&#xFE0F; Descargar</a>' +
+      '</div>'
+    : '';
+
+  content.innerHTML =
+    '<button class="btn btn-outline" style="margin-bottom:1rem;font-size:0.85rem;" onclick="showMedView(\'hoy\')">&#x2190; Volver</button>' +
+    '<div class="dash-card"><div class="dash-card-header"><h4>' + t.paciente + ' &#x2014; ' + t.estudio + '</h4>' +
+    _badgeEstado(t.estado) + '</div>' +
+    '<div class="dash-card-body">' +
+    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:1.5rem;">' +
+    '<div><h4 style="font-size:0.8rem;color:var(--color-text-muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:.75rem;">Turno</h4>' +
+    '<div class="confirmation-summary">' +
+    '<div class="conf-row"><span class="cr-label">Fecha / Hora</span><span class="cr-value">' + t.fecha + ' &#x2014; ' + t.hora + ' hs</span></div>' +
+    '<div class="conf-row"><span class="cr-label">DNI</span><span class="cr-value">' + t.dni + '</span></div>' +
+    '<div class="conf-row"><span class="cr-label">Cobertura</span><span class="cr-value">' + (t.cobertura||'-') + '</span></div>' +
+    '<div class="conf-row"><span class="cr-label">Email</span><span class="cr-value">' + (t.email||'-') + '</span></div>' +
+    '</div></div>' +
+    '<div><h4 style="font-size:0.8rem;color:var(--color-text-muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:.75rem;">Datos Cl&#xED;nicos</h4>' +
+    '<div class="confirmation-summary">' +
+    '<div class="conf-row"><span class="cr-label">Peso/Altura/Edad</span><span class="cr-value">' + (dc.peso||'-') + ' kg / ' + (dc.altura||'-') + ' cm / ' + (dc.edad||'-') + ' a&#xF1;os</span></div>' +
+    '<div class="conf-row"><span class="cr-label">Sexo</span><span class="cr-value">' + (dc.sexo||'-') + '</span></div>' +
+    '<div class="conf-row"><span class="cr-label">Alergias</span><span class="cr-value">' + (dc.alergias||'-') + '</span></div>' +
+    '<div class="conf-row"><span class="cr-label">Medicaci&#xF3;n</span><span class="cr-value">' + (dc.medicacion||'-') + '</span></div>' +
+    '<div class="conf-row"><span class="cr-label">Motivo</span><span class="cr-value">' + (dc.motivo||'-') + '</span></div>' +
+    '</div></div></div>' +
+    '<div style="margin-top:1.5rem;border-top:1px solid var(--color-border);padding-top:1.5rem;">' +
+    '<h4 style="font-size:0.85rem;color:var(--color-text-muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:.75rem;">Informe M&#xE9;dico</h4>' +
+    informeSection +
+    '<div style="margin-top:1rem;">' +
+    '<label style="display:block;font-size:0.85rem;font-weight:600;margin-bottom:.5rem;">' + (t.informe ? 'Reemplazar informe:' : 'Subir informe (PDF/JPG/PNG):') + '</label>' +
+    '<input type="file" id="informeFile_' + id + '" accept=".pdf,.jpg,.jpeg,.png" style="font-size:0.85rem;">' +
+    '<button class="btn btn-primary" style="margin-top:.75rem;" onclick="uploadInforme(' + id + ')">&#x1F4E4; Subir Informe</button>' +
+    '</div></div>' +
+    '</div></div>';
+}
+
+function _archivoURL(filename) {
+  if (!filename) return '';
+  return filename.startsWith('http') ? filename : (API_URL + '/archivos/' + filename + '?token=' + API_TOKEN);
+}
+
+async function uploadInforme(turnoId) {
+  const fileInput = document.getElementById('informeFile_' + turnoId);
+  if (!fileInput || !fileInput.files[0]) { showToast('Seleccion&#xE1; un archivo primero', 'error'); return; }
+  const formData = new FormData();
+  formData.append('informe', fileInput.files[0]);
+  try {
+    showToast('Subiendo informe...', 'info');
+    const res = await fetch(API_URL + '/archivos/informe/' + turnoId, {
+      method: 'POST',
+      headers: { 'Authorization': 'Bearer ' + API_TOKEN },
+      body: formData
+    });
+    if (!res.ok) { const e = await res.json(); throw new Error(e.error || 'Error al subir'); }
+    showToast('Informe cargado correctamente');
+    await cargarTurnos();
+    viewMedTurnoDetail(turnoId);
+  } catch (e) {
+    showToast('Error: ' + e.message, 'error');
+  }
+}
+
+// Agenda de hoy con boton de detalle
+function _medAgendaHoyV2() {
+  const hoy = new Date();
+  const dd  = String(hoy.getDate()).padStart(2,'0');
+  const mm  = String(hoy.getMonth()+1).padStart(2,'0');
+  const yyyy = hoy.getFullYear();
+  const hoyArg = dd + '/' + mm + '/' + yyyy;
+  const turnos = APP.turnos.filter(t => t.fecha === hoyArg && t.estado !== 'Denegado');
+
+  if (!turnos.length) {
+    return '<div class="dash-card"><div class="dash-card-body" style="text-align:center;padding:3rem;">' +
+      '<div style="font-size:3rem;margin-bottom:1rem;">&#x1F5D3;&#xFE0F;</div>' +
+      '<p style="color:var(--color-text-muted);">No hay turnos para hoy (' + hoyArg + ')</p></div></div>';
+  }
+  turnos.sort((a,b) => a.hora.localeCompare(b.hora));
+  let html = '<div style="margin-bottom:1rem;"><strong style="font-size:1.1rem;">&#x1F4C5; ' + hoyArg + '</strong> &#x2014; ' +
+    '<span style="color:var(--color-text-muted);">' + turnos.length + ' turno' + (turnos.length!==1?'s':'') + '</span></div>';
+  turnos.forEach(t => {
+    html += '<div class="dash-card" style="margin-bottom:1rem;"><div class="dash-card-body">' +
+      '<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:.5rem;">' +
+      '<div>' +
+        '<div style="font-size:1.4rem;font-weight:800;color:var(--color-primary);">' + t.hora + ' hs</div>' +
+        '<div style="font-size:1rem;font-weight:700;margin-top:.25rem;">' + t.paciente + '</div>' +
+        '<div style="color:var(--color-text-muted);font-size:0.85rem;">' + t.estudio + '</div>' +
+      '</div>' +
+      '<div style="display:flex;flex-direction:column;align-items:flex-end;gap:.5rem;">' +
+        _badgeEstado(t.estado) +
+        (t.informe ? '<span style="font-size:0.75rem;color:#2e7d32;font-weight:600;">&#x2705; Informe cargado</span>' : '<span style="font-size:0.75rem;color:#f57c00;">&#x1F4CB; Sin informe</span>') +
+        '<button class="btn btn-outline" style="font-size:0.8rem;padding:4px 12px;" onclick="viewMedTurnoDetail(' + t.id + ')">Ver detalle &#x2192;</button>' +
+      '</div></div></div></div>';
+  });
+  return html;
+}
+
+// Override showMedView para usar las nuevas funciones
+const _origShowMedView = showMedView;
+function showMedView(view) {
+  document.querySelectorAll('#sidebarMed .sidebar-link').forEach(l => l.classList.remove('active'));
+  if (typeof event !== 'undefined' && event && event.target && event.target.closest)
+    event.target.closest('.sidebar-link') && event.target.closest('.sidebar-link').classList.add('active');
+
+  const titles = { 'hoy': 'Agenda de Hoy', 'semana': 'Esta Semana', 'todos': 'Todos los Turnos', 'pacientes': 'Pacientes' };
+  document.getElementById('medViewTitle').textContent = titles[view] || 'Portal M&#xE9;dico';
+
+  const content = document.getElementById('medContent');
+  document.getElementById('sidebarMed').classList.remove('mobile-open');
+  const overlay = document.getElementById('sidebarOverlayMed');
+  if (overlay) overlay.classList.remove('active');
+
+  content.innerHTML = '<p style="color:var(--color-text-muted);text-align:center;padding:3rem;">Cargando...</p>';
+  cargarTurnos().then(() => {
+    if      (view === 'hoy')       content.innerHTML = _medAgendaHoyV2();
+    else if (view === 'semana')    content.innerHTML = _medAgendaSemanaV2();
+    else if (view === 'todos')     content.innerHTML = _medTodosTurnosV2();
+    else if (view === 'pacientes') _medPacientes(content);
+  });
+}
+
+function _medAgendaSemanaV2() {
+  const hoy = new Date();
+  const semana = [];
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(hoy); d.setDate(hoy.getDate() + i);
+    const dd = String(d.getDate()).padStart(2,'0');
+    const mm = String(d.getMonth()+1).padStart(2,'0');
+    semana.push(dd + '/' + mm + '/' + d.getFullYear());
+  }
+  let html = '';
+  semana.forEach(fechaArg => {
+    const turnos = APP.turnos.filter(t => t.fecha === fechaArg && t.estado !== 'Denegado');
+    if (!turnos.length) return;
+    html += '<div class="dash-card" style="margin-bottom:1rem;"><div class="dash-card-header"><h4>&#x1F4C5; ' + fechaArg + '</h4>' +
+      '<span class="badge badge-approved">' + turnos.length + ' turno' + (turnos.length!==1?'s':'') + '</span></div>' +
+      '<div class="dash-card-body"><table class="data-table"><thead><tr><th>Hora</th><th>Paciente</th><th>Estudio</th><th>Estado</th><th>Informe</th><th></th></tr></thead><tbody>';
+    turnos.sort((a,b) => a.hora.localeCompare(b.hora)).forEach(t => {
+      html += '<tr><td><strong>' + t.hora + '</strong></td><td>' + t.paciente + '</td>' +
+        '<td style="font-size:0.85rem;">' + t.estudio + '</td><td>' + _badgeEstado(t.estado) + '</td>' +
+        '<td>' + (t.informe ? '<span style="color:#2e7d32;font-size:0.8rem;">&#x2705; Cargado</span>' : '<span style="color:#f57c00;font-size:0.8rem;">Pendiente</span>') + '</td>' +
+        '<td><button class="btn btn-outline" style="font-size:0.75rem;padding:3px 10px;" onclick="viewMedTurnoDetail(' + t.id + ')">Ver &#x2192;</button></td></tr>';
+    });
+    html += '</tbody></table></div></div>';
+  });
+  if (!html) html = '<div class="dash-card"><div class="dash-card-body" style="text-align:center;padding:3rem;"><div style="font-size:3rem;">&#x1F4C5;</div><p style="color:var(--color-text-muted);">No hay turnos esta semana</p></div></div>';
+  return html;
+}
+
+function _medTodosTurnosV2() {
+  const turnos = [...APP.turnos].filter(t => t.estado !== 'Denegado').sort((a,b) => {
+    if (a.fecha !== b.fecha) return b.fecha.localeCompare(a.fecha);
+    return a.hora.localeCompare(b.hora);
+  });
+  if (!turnos.length) return '<div class="dash-card"><div class="dash-card-body" style="text-align:center;padding:3rem;"><p>No hay turnos</p></div></div>';
+  let html = '<div class="dash-card"><div class="dash-card-body" style="overflow-x:auto;"><table class="data-table">' +
+    '<thead><tr><th>Fecha</th><th>Hora</th><th>Paciente</th><th>Estudio</th><th>Estado</th><th>Informe</th><th></th></tr></thead><tbody>';
+  turnos.forEach(t => {
+    html += '<tr>' +
+      '<td>' + t.fecha + '</td><td><strong>' + t.hora + '</strong></td>' +
+      '<td>' + t.paciente + '</td><td style="font-size:0.85rem;">' + t.estudio + '</td>' +
+      '<td>' + _badgeEstado(t.estado) + '</td>' +
+      '<td>' + (t.informe ? '<span style="color:#2e7d32;font-size:0.8rem;">&#x2705;</span>' : '<span style="color:#bbb;font-size:0.8rem;">&#x2014;</span>') + '</td>' +
+      '<td><button class="btn btn-outline" style="font-size:0.75rem;padding:3px 10px;" onclick="viewMedTurnoDetail(' + t.id + ')">Ver &#x2192;</button></td>' +
+      '</tr>';
+  });
+  html += '</tbody></table></div></div>';
+  return html;
+}
+
+// ============================================================
+//  PACIENTE — MIS ESTUDIOS (con informes)
+// ============================================================
+function renderMisEstudios() {
+  const turnos = APP.turnos
+    .filter(t => t.estado !== 'Denegado' && t.estado !== 'Pendiente de autorizaci\xF3n')
+    .sort((a,b) => b.fecha.localeCompare(a.fecha));
+
+  if (!turnos.length) {
+    return '<div class="dash-card"><div class="dash-card-body" style="text-align:center;padding:3rem;">' +
+      '<div style="font-size:3rem;margin-bottom:1rem;">&#x1F4CA;</div>' +
+      '<p style="color:var(--color-text-muted);">Todav&#xED;a no ten&#xE9;s estudios realizados.</p></div></div>';
+  }
+
+  let html = '<p style="color:var(--color-text-muted);margin-bottom:1rem;font-size:0.9rem;">Tus estudios confirmados y aprobados</p>';
+  turnos.forEach(t => {
+    html += '<div class="dash-card" style="margin-bottom:1rem;"><div class="dash-card-body">' +
+      '<div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:1rem;">' +
+      '<div>' +
+        '<div style="font-weight:700;font-size:1rem;color:var(--color-primary);">' + t.estudio + '</div>' +
+        '<div style="color:var(--color-text-muted);font-size:0.85rem;margin-top:.25rem;">&#x1F4C5; ' + t.fecha + ' &#x2014; ' + t.hora + ' hs</div>' +
+        '<div style="margin-top:.25rem;">' + _badgeEstado(t.estado) + '</div>' +
+      '</div>' +
+      '<div>';
+    if (t.informe) {
+      html +=
+        '<div style="background:#e8f5e9;border:1px solid #c8e6c9;border-radius:8px;padding:10px 14px;text-align:center;">' +
+        '<div style="font-size:0.8rem;color:#2e7d32;font-weight:700;margin-bottom:6px;">&#x2705; Informe disponible</div>' +
+        '<a href="' + _archivoURL(t.informe) + '" target="_blank" class="btn btn-primary" style="font-size:0.8rem;padding:6px 14px;margin-right:4px;">&#x1F4C4; Ver</a>' +
+        '<a href="' + _archivoURL(t.informe) + '&download=1" class="btn btn-outline" style="font-size:0.8rem;padding:6px 14px;border-color:var(--color-border);color:var(--color-primary);">&#x2B07;&#xFE0F; Descargar</a>' +
+        '</div>';
+    } else {
+      html += '<div style="font-size:0.8rem;color:var(--color-text-muted);padding:8px 12px;background:#f8f9fa;border-radius:6px;">&#x1F4CB; Informe no disponible a&#xFA;n</div>';
+    }
+    html += '</div></div></div></div>';
+  });
+  return html;
+}
+
