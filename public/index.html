@@ -359,6 +359,29 @@ button { cursor:pointer; border:none; font-family:inherit; }
   .data-table th, .data-table td { padding:6px 8px; }
   #medContent .dash-card { margin-bottom:.75rem; }
 }
+/* ── Portal paciente — accesibilidad ── */
+#dashPaciente .form-group label { font-size:1rem; font-weight:600; }
+#dashPaciente .form-group input,
+#dashPaciente .form-group select,
+#dashPaciente .form-group textarea { font-size:1rem; padding:12px 14px; }
+#dashPaciente .btn { font-size:1rem; padding:.85rem 1.6rem; }
+#dashPaciente .sidebar-link { font-size:0.97rem; padding:.85rem 1.25rem; }
+#dashPaciente .dash-card-body { font-size:0.97rem; line-height:1.65; }
+.study-option h5 { font-size:1rem; }
+.study-option p { font-size:0.88rem; }
+.time-slot { font-size:1rem; padding:12px 16px; font-weight:600; }
+.time-slot.selected { box-shadow:0 0 0 3px var(--color-primary); }
+.wizard-step { font-size:0.88rem; padding:.6rem 1.1rem; }
+#dashPaciente .wizard-panel h3 { font-size:1.35rem; font-weight:800; color:var(--color-primary); margin-bottom:1.25rem; }
+/* Orden médica upload grande */
+.orden-upload-btn { display:flex; align-items:center; justify-content:center; gap:.6rem; padding:18px 24px; background:#f0f4ff; border:2px dashed #8facd4; border-radius:12px; cursor:pointer; font-size:1rem; font-weight:700; color:#1a3a5c; width:100%; box-sizing:border-box; transition:background .2s; }
+.orden-upload-btn:hover { background:#dce8ff; }
+/* Accordion datos clínicos */
+.clin-accordion summary { padding:14px 18px; cursor:pointer; font-weight:700; font-size:1rem; background:#f8f9fa; list-style:none; display:flex; align-items:center; justify-content:space-between; }
+.clin-accordion summary::after { content:'＋'; font-size:1.2rem; color:var(--color-primary); }
+.clin-accordion[open] summary::after { content:'－'; }
+.clin-accordion { border:1.5px solid var(--color-border); border-radius:12px; overflow:hidden; margin-top:1.25rem; }
+.clin-accordion .clin-body { padding:1rem 1.25rem; }
 </style>
 </head>
 <body>
@@ -646,27 +669,23 @@ button { cursor:pointer; border:none; font-family:inherit; }
     </div>
     <div id="loginPaciente">
       <div class="form-group">
-        <label>Nombre y Apellido</label>
-        <input type="text" id="loginNombre" placeholder="Ej: Juan García">
+        <label style="font-size:1rem;font-weight:700;color:#1a3a5c;">DNI</label>
+        <input type="text" id="loginDNI" placeholder="Ej: 30123456" maxlength="12" style="font-size:1.05rem;padding:12px 16px;border:2px solid #d0d7e3;border-radius:10px;">
       </div>
       <div class="form-group">
-        <label>DNI</label>
-        <input type="text" id="loginDNI" placeholder="Ej: 30123456" maxlength="12">
+        <label style="font-size:1rem;font-weight:700;color:#1a3a5c;">Fecha de Nacimiento</label>
+        <input type="date" id="loginFechaNac" style="font-size:1.05rem;padding:12px 16px;border:2px solid #d0d7e3;border-radius:10px;">
       </div>
-      <div class="form-group">
-        <label>Fecha de Nacimiento</label>
-        <input type="date" id="loginFechaNac">
-      </div>
-      <div style="margin:.75rem 0;display:flex;align-items:flex-start;gap:.5rem;">
-        <input type="checkbox" id="loginConsentimiento" style="margin-top:3px;flex-shrink:0;">
-        <label for="loginConsentimiento" style="font-size:0.78rem;color:#555;line-height:1.4;">
-          Acepto el tratamiento de mis datos personales de salud (datos sensibles) conforme a la
+      <div style="margin:.75rem 0;display:flex;align-items:flex-start;gap:.6rem;">
+        <input type="checkbox" id="loginConsentimiento" style="margin-top:4px;flex-shrink:0;width:20px;height:20px;cursor:pointer;">
+        <label for="loginConsentimiento" style="font-size:0.85rem;color:#555;line-height:1.5;cursor:pointer;">
+          Acepto el tratamiento de mis datos de salud conforme a la
           <a href="#" onclick="event.preventDefault();_mostrarPoliticaPrivacidad()" style="color:#1a3a5c;font-weight:600;">Política de Privacidad</a>
-          — Ley 25.326. No estoy obligado/a a proporcionarlos, pero son necesarios para gestionar mi turno.
+          (Ley 25.326)
         </label>
       </div>
-      <button class="btn-login" onclick="loginPaciente()">Ingresar como Paciente</button>
-      <p style="margin-top:.75rem;font-size:0.78rem;color:#888;text-align:center;">Si es tu primera vez, se crea tu cuenta automáticamente.</p>
+      <button class="btn-login" onclick="loginPaciente()" style="font-size:1.05rem;padding:1rem;border-radius:10px;margin-top:.5rem;">Ingresar al Portal</button>
+      <p style="margin-top:.85rem;font-size:0.85rem;color:#888;text-align:center;">Si es tu primera vez, tu cuenta se crea automáticamente.</p>
     </div>
     <div id="loginMedico" style="display:none;">
       <div class="form-group">
@@ -1023,18 +1042,19 @@ function renderPacInicio() {
 }
 
 function renderNuevoTurno() {
-  return '<div class="wizard-steps">' +
+  const todayStr = new Date().toISOString().split('T')[0];
+  return (
+    // Indicador de pasos (3)
+    '<div class="wizard-steps">' +
     '<div class="wizard-step active" data-step="1"><span class="ws-num">1</span>Estudio</div>' +
     '<div class="wizard-step" data-step="2"><span class="ws-num">2</span>Fecha y Hora</div>' +
-    '<div class="wizard-step" data-step="3"><span class="ws-num">3</span>Orden Médica</div>' +
-    '<div class="wizard-step" data-step="4"><span class="ws-num">4</span>Datos Clínicos</div>' +
-    '<div class="wizard-step" data-step="5"><span class="ws-num">5</span>Contacto</div>' +
-    '<div class="wizard-step" data-step="6"><span class="ws-num">6</span>Confirmar</div>' +
+    '<div class="wizard-step" data-step="3"><span class="ws-num">3</span>Confirmar</div>' +
     '</div>' +
     '<div class="dash-card"><div class="dash-card-body">' +
-    // Step 1 - Study
+
+    // ── PASO 1: Seleccioná el estudio ──
     '<div class="wizard-panel active" data-panel="1">' +
-    '<h4 style="margin-bottom:1rem;color:var(--color-primary);">Seleccioná el estudio</h4>' +
+    '<h3>¿Qué estudio necesitás?</h3>' +
     '<div class="study-options">' +
     '<div class="study-option" onclick="selectStudy(this,\'Centellograma Óseo\')"><div class="so-icon">⚛️</div><h5>Centellograma Óseo</h5><p>Rastreo corporal total</p></div>' +
     '<div class="study-option" onclick="selectStudy(this,\'Centellograma Cardíaco\')"><div class="so-icon">🫀</div><h5>Centellograma Cardíaco</h5><p>Perfusión miocárdica</p></div>' +
@@ -1043,11 +1063,14 @@ function renderNuevoTurno() {
     '<div class="study-option" onclick="selectStudy(this,\'Centellograma Renal\')"><div class="so-icon">🧬</div><h5>Centellograma Renal</h5><p>Función renal</p></div>' +
     '<div class="study-option" onclick="selectStudy(this,\'SPECT\')"><div class="so-icon">🔬</div><h5>SPECT</h5><p>Estudio especial</p></div>' +
     '</div></div>' +
-    // Step 2 - Date/Time
+
+    // ── PASO 2: Elegí fecha y horario ──
     '<div class="wizard-panel" data-panel="2">' +
-    '<h4 style="margin-bottom:1rem;color:var(--color-primary);">Elegí fecha y horario</h4>' +
-    '<div class="form-group"><label>Fecha</label><input type="date" id="turnoFecha" min="2026-03-26"></div>' +
-    '<label style="font-size:0.85rem;font-weight:600;margin-bottom:.5rem;display:block;">Horarios disponibles</label>' +
+    '<h3>¿Cuándo querés venir?</h3>' +
+    '<div class="form-group"><label>Fecha</label>' +
+    '<input type="date" id="turnoFecha" min="' + todayStr + '" style="font-size:1.05rem;padding:12px 14px;"></div>' +
+    '<div class="form-group" style="margin-top:1rem;">' +
+    '<label style="font-size:1rem;font-weight:600;display:block;margin-bottom:.75rem;">Elegí un horario</label>' +
     '<div class="time-slots">' +
     '<div class="time-slot" onclick="selectTime(this,\'08:00\')">08:00</div>' +
     '<div class="time-slot" onclick="selectTime(this,\'08:30\')">08:30</div>' +
@@ -1061,54 +1084,67 @@ function renderNuevoTurno() {
     '<div class="time-slot" onclick="selectTime(this,\'13:30\')">13:30</div>' +
     '<div class="time-slot" onclick="selectTime(this,\'14:00\')">14:00</div>' +
     '<div class="time-slot" onclick="selectTime(this,\'14:30\')">14:30</div>' +
-    '</div></div>' +
-    // Step 3 - Order upload
+    '</div></div></div>' +
+
+    // ── PASO 3: Confirmar ──
     '<div class="wizard-panel" data-panel="3">' +
-    '<h4 style="margin-bottom:1rem;color:var(--color-primary);">Subí tu orden médica</h4>' +
-    '<p style="font-size:0.85rem;color:var(--color-text-muted);margin-bottom:1rem;">Fotografiá o escaneá la orden que te dio tu médico y subila acá.</p>' +
-    '<div class="upload-area" onclick="document.getElementById(\'ordenFile\').click()">' +
-    '<div class="ua-icon">📄</div><p>Hacé clic o arrastrá tu archivo aquí</p><p class="ua-hint">JPG, PNG o PDF — Máx. 5MB</p>' +
-    '</div><input type="file" id="ordenFile" style="display:none" accept=".jpg,.jpeg,.png,.pdf" onchange="handleOrdenUpload(this)">' +
-    '<p id="ordenFileName" style="margin-top:.75rem;font-size:0.85rem;color:var(--color-success);display:none;">✅ Archivo cargado</p>' +
-    '<div class="form-group" style="margin-top:1rem;"><label>Cobertura</label><select id="turnoCobertura"><option value="OISFA">OISFA</option><option value="Particular">Particular</option></select></div>' +
+    '<h3>Completá tu solicitud</h3>' +
+
+    // Resumen rápido del turno
+    '<div id="turnoResumen3" style="background:#eef2ff;border-radius:12px;padding:14px 18px;margin-bottom:1.5rem;border-left:4px solid var(--color-primary);">' +
+    '<div id="res3Estudio" style="font-weight:800;font-size:1.05rem;color:var(--color-primary);">-</div>' +
+    '<div id="res3Fecha" style="color:var(--color-text-muted);font-size:0.9rem;margin-top:4px;">-</div>' +
     '</div>' +
-    // Step 4 - Clinical data
-    '<div class="wizard-panel" data-panel="4">' +
-    '<h4 style="margin-bottom:1rem;color:var(--color-primary);">Datos clínicos (obligatorios)</h4>' +
-    '<p style="font-size:0.85rem;color:var(--color-text-muted);margin-bottom:1rem;">Esta información es necesaria para que el equipo médico pueda evaluar tu estudio.</p>' +
-    '<div class="dash-form"><div class="form-row">' +
-    '<div class="form-group"><label>Peso (kg) *</label><input type="number" id="clinPeso" placeholder="Ej: 70"></div>' +
-    '<div class="form-group"><label>Altura (cm) *</label><input type="number" id="clinAltura" placeholder="Ej: 170"></div>' +
+
+    // Cobertura
+    '<div class="form-group"><label>Cobertura médica</label>' +
+    '<select id="turnoCobertura" style="font-size:1.05rem;padding:12px 14px;">' +
+    '<option value="OISFA">OISFA</option><option value="Particular">Particular</option></select></div>' +
+
+    // Orden médica
+    '<div style="margin:1.25rem 0;">' +
+    '<label style="font-size:1rem;font-weight:600;display:block;margin-bottom:.6rem;">' +
+    'Orden médica <span style="font-weight:400;color:var(--color-text-muted);font-size:0.85rem;">— fotografiá la orden o adjuntá un PDF</span></label>' +
+    '<label class="orden-upload-btn" for="ordenFile">📷 Fotografiar o adjuntar orden</label>' +
+    '<input type="file" id="ordenFile" style="display:none" accept="image/*,.pdf" capture="environment" onchange="handleOrdenUpload(this)">' +
+    '<div id="ordenFileName" style="display:none;margin-top:.6rem;padding:10px 14px;background:#e8f5e9;border-radius:8px;font-size:0.95rem;font-weight:600;color:#2e7d32;">✅ Orden recibida</div>' +
+    '</div>' +
+
+    // Contacto
+    '<div class="form-group"><label>Email <span style="font-weight:400;color:var(--color-text-muted);font-size:0.85rem;">— para recibir la confirmación</span></label>' +
+    '<input type="email" id="turnoEmail" placeholder="tu@email.com" style="font-size:1.05rem;padding:12px 14px;"></div>' +
+    '<div class="form-group"><label>WhatsApp <span style="font-weight:400;color:var(--color-text-muted);font-size:0.85rem;">— recordatorio 24hs antes (opcional)</span></label>' +
+    '<div id="turnoTelContainer"></div></div>' +
+
+    // Datos clínicos — accordion opcional
+    '<details class="clin-accordion">' +
+    '<summary>Datos clínicos adicionales (opcional)<span style="font-size:0.8rem;font-weight:400;color:var(--color-text-muted);display:block;margin-top:2px;">El médico los verá cuando evalúe tu estudio</span></summary>' +
+    '<div class="clin-body"><div class="dash-form">' +
+    '<div class="form-row">' +
+    '<div class="form-group"><label>Peso (kg)</label><input type="number" id="clinPeso" placeholder="Ej: 70"></div>' +
+    '<div class="form-group"><label>Altura (cm)</label><input type="number" id="clinAltura" placeholder="Ej: 170"></div>' +
     '</div><div class="form-row">' +
-    '<div class="form-group"><label>Edad *</label><input type="number" id="clinEdad" placeholder="Ej: 45"></div>' +
-    '<div class="form-group"><label>Sexo *</label><select id="clinSexo"><option value="">Seleccionar</option><option>Femenino</option><option>Masculino</option><option>Otro</option></select></div>' +
+    '<div class="form-group"><label>Edad</label><input type="number" id="clinEdad" placeholder="Ej: 45"></div>' +
+    '<div class="form-group"><label>Sexo</label><select id="clinSexo"><option value="">Seleccionar</option><option>Femenino</option><option>Masculino</option><option>Otro</option></select></div>' +
     '</div>' +
-    '<div class="form-group"><label>Alergias conocidas *</label><input type="text" id="clinAlergias" placeholder="Ej: Penicilina, Yodo... o Ninguna"></div>' +
-    '<div class="form-group"><label>Medicación actual *</label><input type="text" id="clinMedicacion" placeholder="Ej: Levotiroxina 50mcg... o Ninguna"></div>' +
-    '<div class="form-group"><label>Antecedentes relevantes *</label><textarea id="clinAntecedentes" placeholder="Ej: Hipotiroidismo, cirugía previa..."></textarea></div>' +
-    '<div class="form-group"><label>Motivo del estudio *</label><textarea id="clinMotivo" placeholder="Ej: Dolor articular persistente en rodilla derecha"></textarea></div>' +
-    '</div></div>' +
-    // Step 5 - Contact
-    '<div class="wizard-panel" data-panel="5">' +
-    '<h4 style="margin-bottom:1rem;color:var(--color-primary);">Datos de contacto</h4>' +
-    '<p style="font-size:0.85rem;color:var(--color-text-muted);margin-bottom:1rem;">Te enviaremos la confirmación y un recordatorio 24hs antes por mail y WhatsApp.</p>' +
-    '<div class="form-group"><label>Email *</label><input type="email" id="turnoEmail" placeholder="tu@email.com"></div>' +
-    '<div class="form-group"><label>WhatsApp *</label><div id="turnoTelContainer"><!-- inyectado por api.js --></div></div>' +
+    '<div class="form-group"><label>Alergias</label><input type="text" id="clinAlergias" placeholder="Ej: Penicilina, Yodo... o Ninguna"></div>' +
+    '<div class="form-group"><label>Medicación actual</label><input type="text" id="clinMedicacion" placeholder="Ej: Levotiroxina 50mcg... o Ninguna"></div>' +
+    '<div class="form-group"><label>Antecedentes</label><textarea id="clinAntecedentes" placeholder="Ej: Hipotiroidismo, cirugía previa..."></textarea></div>' +
+    '<div class="form-group"><label>Motivo del estudio</label><textarea id="clinMotivo" placeholder="Ej: Dolor articular persistente en rodilla derecha"></textarea></div>' +
+    '</div></div></details>' +
+
+    '<p style="font-size:0.82rem;color:var(--color-text-muted);margin-top:1.25rem;">Tu solicitud será revisada por el equipo médico. Te avisamos cuando esté aprobada.</p>' +
     '</div>' +
-    // Step 6 - Confirm
-    '<div class="wizard-panel" data-panel="6">' +
-    '<h4 style="margin-bottom:1rem;color:var(--color-primary);">Resumen de tu solicitud</h4>' +
-    '<div class="confirmation-summary" id="turnoResumen"></div>' +
-    '<p style="font-size:0.8rem;color:var(--color-text-muted);margin-top:1rem;">Al confirmar, tu orden será enviada al equipo médico para autorización. Recibirás un mail cuando sea aprobada.</p>' +
-    '</div>' +
-    // Wizard nav
-    '<div class="wizard-nav">' +
-    '<button class="btn btn-outline" id="wizardPrev" onclick="wizardPrev()" style="border-color:var(--color-border);color:var(--color-text);display:none;">← Anterior</button>' +
-    '<button class="btn btn-primary" id="wizardNext" onclick="wizardNext()">Siguiente →</button>' +
-    '</div></div></div>';
+
+    // Navegación
+    '<div class="wizard-nav" style="margin-top:1.5rem;">' +
+    '<button class="btn btn-outline" id="wizardPrev" onclick="wizardPrev()" style="display:none;font-size:1rem;padding:.85rem 1.4rem;">← Anterior</button>' +
+    '<button class="btn btn-primary" id="wizardNext" onclick="wizardNext()" style="font-size:1rem;padding:.85rem 1.8rem;">Siguiente →</button>' +
+    '</div></div></div>'
+  );
 }
 
-// Wizard logic
+// Wizard logic — 3 pasos
 let wizardStep = 1;
 let turnoData = {};
 
@@ -1126,39 +1162,48 @@ function updateWizardUI() {
     if(parseInt(p.dataset.panel) === wizardStep) p.classList.add('active');
   });
   document.getElementById('wizardPrev').style.display = wizardStep > 1 ? 'inline-flex' : 'none';
-  document.getElementById('wizardNext').textContent = wizardStep === 6 ? '✅ Confirmar Solicitud' : 'Siguiente →';
-  if(wizardStep === 6) buildConfirmation();
+  document.getElementById('wizardNext').textContent = wizardStep === 3 ? '✅ Confirmar Solicitud' : 'Siguiente →';
+  // En el paso 3, actualizar resumen rápido
+  if(wizardStep === 3) {
+    const r3e = document.getElementById('res3Estudio');
+    const r3f = document.getElementById('res3Fecha');
+    if(r3e) r3e.textContent = turnoData.estudio || '-';
+    if(r3f) r3f.textContent = (turnoData.fecha || '-') + (turnoData.hora ? '  —  ' + turnoData.hora + ' hs' : '');
+  }
 }
 
 function wizardNext() {
   if(wizardStep === 1 && !turnoData.estudio) { showToast('Seleccioná un estudio','error'); return; }
   if(wizardStep === 2) {
     turnoData.fecha = document.getElementById('turnoFecha').value;
-    if(!turnoData.fecha || !turnoData.hora) { showToast('Elegí fecha y horario','error'); return; }
+    if(!turnoData.fecha || !turnoData.hora) { showToast('Elegí una fecha y un horario','error'); return; }
   }
-  if(wizardStep === 3) { turnoData.cobertura = document.getElementById('turnoCobertura').value; }
-  if(wizardStep === 4) {
-    const fields = ['clinPeso','clinAltura','clinEdad','clinSexo','clinAlergias','clinMedicacion','clinAntecedentes','clinMotivo'];
-    for(const f of fields) { if(!document.getElementById(f).value.trim()) { showToast('Completá todos los datos clínicos','error'); return; } }
-    turnoData.datosClinic = {
-      peso:document.getElementById('clinPeso').value, altura:document.getElementById('clinAltura').value,
-      edad:document.getElementById('clinEdad').value, sexo:document.getElementById('clinSexo').value,
-      alergias:document.getElementById('clinAlergias').value, medicacion:document.getElementById('clinMedicacion').value,
-      antecedentes:document.getElementById('clinAntecedentes').value, motivo:document.getElementById('clinMotivo').value
-    };
-  }
-  if(wizardStep === 5) {
-    turnoData.email    = document.getElementById('turnoEmail').value.trim();
-    // Leer teléfono del nuevo input compuesto (área + número)
+  if(wizardStep === 3) {
+    // Cobertura
+    turnoData.cobertura = document.getElementById('turnoCobertura').value;
+    // Email (requerido)
+    turnoData.email = (document.getElementById('turnoEmail') || {}).value || '';
+    turnoData.email = turnoData.email.trim();
+    if(!turnoData.email) { showToast('Ingresá tu email para recibir la confirmación','error'); return; }
+    // WhatsApp (opcional)
     const telArea = document.getElementById('turnoTelArea');
     const telNum  = document.getElementById('turnoTelNum');
-    const area    = telArea ? telArea.value.trim() : '';
-    const num     = telNum  ? telNum.value.replace(/\D/g,'').trim() : '';
-    turnoData.telefono = (area && num) ? area + num : '';
-    if(!turnoData.email)    { showToast('Ingresá tu email','error'); return; }
-    if(!turnoData.telefono || num.length < 6) { showToast('Ingresá tu número de WhatsApp completo','error'); return; }
+    const area = telArea ? telArea.value.trim() : '';
+    const num  = telNum  ? telNum.value.replace(/\D/g,'').trim() : '';
+    turnoData.telefono = (area && num && num.length >= 6) ? area + num : '';
+    // Datos clínicos (opcionales)
+    const getV = id => { const el = document.getElementById(id); return el ? el.value.trim() : ''; };
+    if(getV('clinPeso') || getV('clinAltura') || getV('clinEdad')) {
+      turnoData.datosClinic = {
+        peso: getV('clinPeso'), altura: getV('clinAltura'),
+        edad: getV('clinEdad'), sexo: getV('clinSexo'),
+        alergias: getV('clinAlergias'), medicacion: getV('clinMedicacion'),
+        antecedentes: getV('clinAntecedentes'), motivo: getV('clinMotivo')
+      };
+    }
+    submitTurno();
+    return;
   }
-  if(wizardStep === 6) { submitTurno(); return; }
   wizardStep++;
   updateWizardUI();
 }

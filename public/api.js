@@ -1310,30 +1310,55 @@ function renderMisEstudios() {
   if (!turnos.length) {
     return '<div class="dash-card"><div class="dash-card-body" style="text-align:center;padding:3rem;">' +
       '<div style="font-size:3rem;margin-bottom:1rem;">&#x1F4CA;</div>' +
-      '<p style="color:var(--color-text-muted);">Todav&#xED;a no ten&#xE9;s estudios realizados.</p></div></div>';
+      '<p style="color:var(--color-text-muted);font-size:1rem;">Todav&#xED;a no ten&#xE9;s estudios realizados.</p>' +
+      '<p style="color:var(--color-text-muted);font-size:0.9rem;margin-top:.5rem;">Cuando tengas un estudio aprobado, aparecer&#xE1; ac&#xE1; con su informe.</p>' +
+      '</div></div>';
   }
 
-  let html = '<p style="color:var(--color-text-muted);margin-bottom:1rem;font-size:0.9rem;">Tus estudios confirmados y aprobados</p>';
+  let html = '<p style="color:var(--color-text-muted);margin-bottom:1.25rem;font-size:0.95rem;">Tus estudios en orden cronol\xF3gico &#x2014; del m\xE1s reciente al m\xE1s antiguo</p>';
+
   turnos.forEach(t => {
-    html += '<div class="dash-card" style="margin-bottom:1rem;"><div class="dash-card-body">' +
-      '<div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:1rem;">' +
-      '<div>' +
-        '<div style="font-weight:700;font-size:1rem;color:var(--color-primary);">' + t.estudio + '</div>' +
-        '<div style="color:var(--color-text-muted);font-size:0.85rem;margin-top:.25rem;">&#x1F4C5; ' + t.fecha + ' &#x2014; ' + t.hora + ' hs</div>' +
-        '<div style="margin-top:.25rem;">' + _badgeEstado(t.estado) + '</div>' +
+    const informeUrl = t.informe ? _archivoURL(t.informe) : null;
+    // Texto para compartir
+    const shareText = 'Mis resultados de ' + t.estudio + ' (' + t.fecha + ')';
+    const waShareUrl = informeUrl
+      ? 'https://wa.me/?text=' + encodeURIComponent(shareText + ': ' + informeUrl)
+      : 'https://wa.me/5491150232010?text=' + encodeURIComponent('Hola, necesito mi informe de ' + t.estudio + ' del ' + t.fecha);
+    const mailShareUrl = informeUrl
+      ? 'mailto:?subject=' + encodeURIComponent('Informe: ' + t.estudio) + '&body=' + encodeURIComponent(shareText + '\n\nDescargar: ' + informeUrl)
+      : '';
+
+    html += '<div class="dash-card" style="margin-bottom:1.25rem;">' +
+      '<div class="dash-card-body">' +
+
+      // Cabecera del estudio
+      '<div style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:1rem;margin-bottom:1rem;">' +
+        '<div>' +
+          '<div style="font-weight:800;font-size:1.1rem;color:var(--color-primary);margin-bottom:.3rem;">' + t.estudio + '</div>' +
+          '<div style="color:var(--color-text-muted);font-size:0.95rem;">&#x1F4C5; ' + t.fecha + ' &mdash; ' + t.hora + ' hs</div>' +
+        '</div>' +
+        '<div>' + _badgeEstado(t.estado) + '</div>' +
       '</div>' +
-      '<div>';
-    if (t.informe) {
-      html +=
-        '<div style="background:#e8f5e9;border:1px solid #c8e6c9;border-radius:8px;padding:10px 14px;text-align:center;">' +
-        '<div style="font-size:0.8rem;color:#2e7d32;font-weight:700;margin-bottom:6px;">&#x2705; Informe disponible</div>' +
-        '<a href="' + _archivoURL(t.informe) + '" target="_blank" class="btn btn-primary" style="font-size:0.8rem;padding:6px 14px;margin-right:4px;">&#x1F4C4; Ver</a>' +
-        '<a href="' + _archivoURL(t.informe) + '&download=1" class="btn btn-outline" style="font-size:0.8rem;padding:6px 14px;border-color:var(--color-border);color:var(--color-primary);">&#x2B07;&#xFE0F; Descargar</a>' +
-        '</div>';
-    } else {
-      html += '<div style="font-size:0.8rem;color:var(--color-text-muted);padding:8px 12px;background:#f8f9fa;border-radius:6px;">&#x1F4CB; Informe no disponible a&#xFA;n</div>';
-    }
-    html += '</div></div></div></div>';
+
+      // Informe
+      (informeUrl
+        ? '<div style="background:#e8f5e9;border:1px solid #c8e6c9;border-radius:10px;padding:14px 18px;">' +
+          '<div style="font-weight:700;color:#2e7d32;margin-bottom:.75rem;font-size:1rem;">&#x2705; Informe disponible</div>' +
+          '<div style="display:flex;flex-wrap:wrap;gap:.6rem;">' +
+            '<a href="' + informeUrl + '" target="_blank" class="btn btn-primary" style="font-size:0.95rem;padding:10px 18px;">&#x1F4C4; Ver informe</a>' +
+            '<a href="' + informeUrl + '&download=1" class="btn btn-outline" style="font-size:0.95rem;padding:10px 18px;border-color:var(--color-border);color:var(--color-primary);">&#x2B07;&#xFE0F; Descargar</a>' +
+            '<a href="' + waShareUrl + '" target="_blank" class="btn" style="font-size:0.95rem;padding:10px 18px;background:#25D366;color:white;border:none;border-radius:8px;cursor:pointer;">&#x1F4AC; WhatsApp</a>' +
+            (mailShareUrl ? '<a href="' + mailShareUrl + '" class="btn" style="font-size:0.95rem;padding:10px 18px;background:#4a90d9;color:white;border:none;border-radius:8px;cursor:pointer;">&#x2709;&#xFE0F; Email</a>' : '') +
+          '</div>' +
+          '</div>'
+        : '<div style="padding:12px 16px;background:#f8f9fa;border-radius:8px;color:var(--color-text-muted);font-size:0.95rem;">' +
+          '&#x1F4CB; El informe estar\xE1 disponible cuando el m\xE9dico lo cargue.' +
+          (t.estado === 'Confirmado' || t.estado === 'Aprobado'
+            ? ' &nbsp; <a href="' + waShareUrl + '" target="_blank" style="color:#25D366;font-weight:600;">Consultar por WhatsApp</a>' : '') +
+          '</div>'
+      ) +
+
+      '</div></div>';
   });
   return html;
 }
